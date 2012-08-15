@@ -17,8 +17,6 @@ trait WisebedClient {
     )
   )
 
-  def hello() = "hello"
-
   def buildAuthenticationTripleList(urnPrefix: String, username: String,
                                     password: String): java.util.List[AuthenticationTriple] = {
 
