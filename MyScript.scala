@@ -1,12 +1,7 @@
-object MyScript {
+import eu.wisebed.client.WisebedClient
 
-  import eu.wisebed.client.WisebedClient
-
-  class MyClass extends App with WisebedClient {
-
-    println(hello())
-  }
-
+object MyScript extends App with WisebedClient {
+  args.foreach(arg => println(arg))
 }
 
-new MyScript.MyClass().main(args)
+MyScript.main(args)
