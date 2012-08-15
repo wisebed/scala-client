@@ -1,8 +1,8 @@
 package eu.wisebed.client
 
 import de.uniluebeck.itm.tr.util.Logging
-import eu.wisebed.api.rs.ConfidentialReservationData
-import eu.wisebed.api.snaa.AuthenticationTriple
+import eu.wisebed.api.v3.rs.ConfidentialReservationData
+import eu.wisebed.api.v3.snaa.AuthenticationTriple
 import javax.xml.datatype.DatatypeFactory
 import org.apache.log4j.{PatternLayout, ConsoleAppender, Level}
 import org.joda.time.DateTime

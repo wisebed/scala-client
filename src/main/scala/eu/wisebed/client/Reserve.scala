@@ -1,7 +1,8 @@
 package eu.wisebed.client
 
 import com.weiglewilczek.slf4s.Logging
-import eu.wisebed.api.WisebedServiceHelper
+import eu.wisebed.api.v3.WisebedServiceHelper
+import eu.wisebed.api.v3.WisebedServiceHelper
 import java.net.URL
 
 object Reserve extends WisebedClient with Logging {
