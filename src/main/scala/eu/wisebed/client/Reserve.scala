@@ -1,3 +1,5 @@
+package eu.wisebed.client
+
 import com.weiglewilczek.slf4s.Logging
 import eu.wisebed.api.WisebedServiceHelper
 import java.net.URL

@@ -1,9 +1,23 @@
+package eu.wisebed.client
+
+import de.uniluebeck.itm.tr.util.Logging
 import eu.wisebed.api.rs.ConfidentialReservationData
 import eu.wisebed.api.snaa.AuthenticationTriple
 import javax.xml.datatype.DatatypeFactory
+import org.apache.log4j.{PatternLayout, ConsoleAppender, Level}
 import org.joda.time.DateTime
 
 trait WisebedClient {
+
+  de.uniluebeck.itm.tr.util.Logging.setLoggingDefaults(
+    Level.INFO,
+    new ConsoleAppender(
+      new PatternLayout(Logging.DEFAULT_PATTERN_LAYOUT),
+      "System.err"
+    )
+  )
+
+  def hello() = "hello"
 
   def buildAuthenticationTripleList(urnPrefix: String, username: String,
                                     password: String): java.util.List[AuthenticationTriple] = {
