@@ -2,3 +2,7 @@ target
 *.iml
 *.iws
 *.ipr
+.cache
+.classpath
+.project
+.settings
