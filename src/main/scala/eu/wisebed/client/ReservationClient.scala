@@ -11,28 +11,21 @@ class ReservationClientConfig extends Config {
   var nodeUrns: Array[String] = null
 }
 
-class ReservationClient(args: Array[String])
-  extends WisebedClient[ReservationClientConfig](args, new ReservationClientConfig())
-  with Logging {
+class ReservationClient(args: Array[String]) extends WisebedClient[ReservationClientConfig](args, new ReservationClientConfig())  {
 
-  configParser.intOpt("d", "durationInMinutes", "the duration of the reservation to be made in minutes") {
-    (durationInMinutes: Int, config: ReservationClientConfig) => {
-      config.durationInMinutes = durationInMinutes
-      config
-    }
-  }
+  configParser.intOpt("d", "durationInMinutes", "the duration of the reservation to be made in minutes", {
+    durationInMinutes: Int => { initialConfig.durationInMinutes = durationInMinutes }
+  })
 
-  configParser.opt("n", "nodeUrns", "a comma-separated list of node URNs that are to be reserved") {
-    (nodeUrnString: String, config: ReservationClientConfig) => {
-      config.nodeUrns = nodeUrnString.split(",").map(nodeUrn => nodeUrn.trim)
-      config
-    }
-  }
+  configParser.opt("n", "nodeUrns", "a comma-separated list of node URNs that are to be reserved", {
+    nodeUrnString: String => { initialConfig.nodeUrns = nodeUrnString.split(",").map(nodeUrn => nodeUrn.trim) }
+  })
 
   init()
 
   def reserve(): List[SecretReservationKey] = {
-    makeReservation(authenticate(), config.durationInMinutes, config.nodeUrns)
+    val secretAuthenticationKey = authenticate()
+    makeReservation(secretAuthenticationKey, config.durationInMinutes, config.nodeUrns)
   }
 }
 
