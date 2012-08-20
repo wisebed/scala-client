@@ -1,4 +1,5 @@
 package eu.wisebed.client
+
 import eu.wisebed.api.v3.wsn.WSN
 import eu.wisebed.api.v3.controller.Controller
 import eu.wisebed.api.v3.common.Message
@@ -7,11 +8,11 @@ import java.net.URL
 import com.weiglewilczek.slf4s.Logging
 import scala.collection.JavaConversions._
 import org.joda.time.DateTime
-import scala.collection.mutable.Buffer
 
 class SoapReservation(wsn1: WSN,
-  val controllerEndpointUrl: URL,
-  private var _endpoint: Option[javax.xml.ws.Endpoint] = None) extends Reservation(wsn1) with Logging {
+                      val controllerEndpointUrl: URL,
+                      private var _endpoint: Option[javax.xml.ws.Endpoint] = None)
+  extends Reservation(wsn1) with Logging {
 
   @javax.jws.WebService(
     name = "Controller",
@@ -45,6 +46,11 @@ class SoapReservation(wsn1: WSN,
       }
     }
 
+    def experimentStarted() {
+      logger.trace("SoapReservationController.experimentStarted()")
+      notifyExperimentStarted()
+    }
+
     def experimentEnded() {
       logger.trace("SoapReservationController.experimentEnded()")
       notifyExperimentEnded()
@@ -69,7 +75,7 @@ class SoapReservation(wsn1: WSN,
         try {
           wsn.removeController(controllerEndpointUrl.toString())
         } catch {
-          case _ => // ignore
+          case e:Exception => // ignore
         }
         e.stop()
         _endpoint = None
