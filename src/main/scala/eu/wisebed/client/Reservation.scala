@@ -28,6 +28,8 @@ import scala.collection.mutable.Buffer
 
 abstract class Reservation(val wsn: WSN) extends Logging {
 
+  assertConnected()
+  
   abstract class Operation { def isComplete(value: Int): Boolean }
   object RESET extends Operation { def isComplete(value: Int) = value >= 1 }
 

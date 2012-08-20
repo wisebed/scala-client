@@ -9,7 +9,9 @@ import scala.collection.JavaConversions._
 import org.joda.time.DateTime
 import scala.collection.mutable.Buffer
 
-class SoapReservation(wsn1: WSN, val controllerEndpointUrl: URL) extends Reservation(wsn1) with Logging {
+class SoapReservation(wsn1: WSN,
+  val controllerEndpointUrl: URL,
+  private var _endpoint: Option[javax.xml.ws.Endpoint] = None) extends Reservation(wsn1) with Logging {
 
   @javax.jws.WebService(
     name = "Controller",
@@ -49,19 +51,26 @@ class SoapReservation(wsn1: WSN, val controllerEndpointUrl: URL) extends Reserva
     }
   }
 
-  private var _endpoint: Option[javax.xml.ws.Endpoint] = None
-
   protected def assertConnected() = {
-    _endpoint = Some(javax.xml.ws.Endpoint.publish(
-      controllerEndpointUrl.toString(),
-      new SoapReservationController()))
-    wsn.addController(controllerEndpointUrl.toString())
-    notifyExperimentStarted()
+    _endpoint match {
+      case Some(_) => // nothing to do
+      case None => {
+        _endpoint = Some(javax.xml.ws.Endpoint.publish(
+          controllerEndpointUrl.toString(),
+          new SoapReservationController()))
+        wsn.addController(controllerEndpointUrl.toString())
+      }
+    }
   }
 
   def shutdown() {
     _endpoint match {
       case Some(e) => {
+        try {
+          wsn.removeController(controllerEndpointUrl.toString())
+        } catch {
+          case _ => // ignore
+        }
         e.stop()
         _endpoint = None
       }
