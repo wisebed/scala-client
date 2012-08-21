@@ -1,15 +1,6 @@
 package eu.wisebed.client
 
-import com.weiglewilczek.slf4s.Logging
-import eu.wisebed.api.v3.common.SecretReservationKey
-import java.io.File
 import scopt.mutable.OptionParser
-import de.uniluebeck.itm.tr.util.ProgressListenableFuture
-import java.util.concurrent.TimeUnit
-import com.google.common.util.concurrent.MoreExecutors
-import scala.collection.JavaConversions._
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
 import de.uniluebeck.itm.tr.util.StringUtils
 import org.joda.time.DateTime
 
@@ -30,7 +21,7 @@ class ListenClient(args: Array[String]) extends WisebedClient[ListenClientConfig
 
   init(args, initialConfig, optionParser)
 
-  def startListening() = {
+  def startListening() {
 
     connectToReservation(config.srkString.get)
 
@@ -50,6 +41,14 @@ class ListenClient(args: Array[String]) extends WisebedClient[ListenClientConfig
       print(" | ")
       print(notification)
     })
+
+    reservation.onNodesAttached(nodeUrns => {
+      nodeUrns.foreach(nodeUrn => println("Node \"" + nodeUrn + "\" was attached"))
+    })
+
+    reservation.onNodesDetached(nodeUrns => {
+      nodeUrns.foreach(nodeUrn => println("Node \"" + nodeUrn + "\" was detached"))
+    })
   }
 }
 
@@ -61,6 +60,8 @@ object Listen {
     while (true) {
       System.in.read()
     }
-    Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() { def run() = client.shutdown() }))
+    Runtime.getRuntime.addShutdownHook(new Thread() {
+      override def run() { client.shutdown() }
+    })
   }
 }

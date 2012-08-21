@@ -21,6 +21,14 @@ class SoapReservation(wsn1: WSN,
     targetNamespace = "http://wisebed.eu/api/v3/controller")
   private class SoapReservationController extends Controller {
 
+    def nodesAttached(nodeUrns: java.util.List[String]) {
+      notifyNodesAttached(List(nodeUrns:_*))
+    }
+
+    def nodesDetached(nodeUrns: java.util.List[String]) {
+      notifyNodesDetached(List(nodeUrns:_*))
+    }
+
     def receive(messageList: java.util.List[Message]) {
       logger.trace("SoapReservationController.receive(" + messageList + ")")
       for (message <- messageList) {

@@ -35,6 +35,14 @@ abstract class Reservation(val wsn: WSN) extends Logging {
 
   private val requestCache: TimedCache[Long, (Operation, Map[String, ProgressSettableFuture[Any]])] = new TimedCache()
 
+  private var nodesAttachedListeners: List[List[String] => Unit] = Nil
+  def onNodesAttached(listener: List[String] => Unit) = nodesAttachedListeners ::= listener
+  protected def notifyNodesAttached(nodeUrns: List[String]) = for (listener <- nodesAttachedListeners) listener(nodeUrns)
+
+  private var nodesDetachedListeners: List[List[String] => Unit] = Nil
+  def onNodesDetached(listener: List[String] => Unit) = nodesDetachedListeners ::= listener
+  protected def notifyNodesDetached(nodeUrns: List[String]) = for (listener <- nodesDetachedListeners) listener(nodeUrns)
+
   case class Notification(@Nullable nodeUrn:String, timestamp: DateTime, msg: String)
   private var notificationListeners: List[Notification => Unit] = Nil
   def onNotification(listener: Notification => Unit) = notificationListeners ::= listener

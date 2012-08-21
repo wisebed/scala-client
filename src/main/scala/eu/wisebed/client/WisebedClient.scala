@@ -69,6 +69,7 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
       config.smEndpointUrl match {
         case Some(url) => {
           _sm = Some(WisebedServiceHelper.getSessionManagementService(url.toString))
+          _sm.get
         }
         case None => throwIllegalStateException
       }
