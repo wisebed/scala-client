@@ -2,7 +2,6 @@ package eu.wisebed.client
 
 import eu.wisebed.api.v3.rs.RS
 import eu.wisebed.api.v3.snaa.{ SNAA, AuthenticationTriple }
-import javax.xml.datatype.DatatypeFactory
 import org.apache.log4j.{ PatternLayout, ConsoleAppender, Level }
 import org.joda.time.DateTime
 import java.io.File
@@ -117,12 +116,11 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
 
   def makeReservation(secretAuthenticationKeys: List[SecretAuthenticationKey],
     durationInMinutes: Int,
-    nodeUrns: Array[String]): List[SecretReservationKey] = {
+    nodeUrns: List[String]): List[SecretReservationKey] = {
 
-    val datatypeFactory = DatatypeFactory.newInstance()
-    val from = datatypeFactory.newXMLGregorianCalendar(DateTime.now.toGregorianCalendar)
-    val to = datatypeFactory.newXMLGregorianCalendar(DateTime.now.plusMinutes(durationInMinutes).toGregorianCalendar)
     val nodeUrnList = List(nodeUrns:_*)
+    val from = DateTime.now
+    val to = DateTime.now.plusMinutes(durationInMinutes)
 
     List(rs.makeReservation(secretAuthenticationKeys, nodeUrnList, from, to): _*)
   }
