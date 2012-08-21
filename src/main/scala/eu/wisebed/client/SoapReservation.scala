@@ -1,9 +1,8 @@
 package eu.wisebed.client
 
 import eu.wisebed.api.v3.wsn.WSN
-import eu.wisebed.api.v3.controller.Controller
+import eu.wisebed.api.v3.controller.{Notification, Controller, RequestStatus}
 import eu.wisebed.api.v3.common.Message
-import eu.wisebed.api.v3.controller.RequestStatus
 import java.net.URL
 import com.weiglewilczek.slf4s.Logging
 import scala.collection.JavaConversions._
@@ -39,10 +38,13 @@ class SoapReservation(wsn1: WSN,
       }
     }
 
-    def receiveNotification(notificationList: java.util.List[String]) {
+    def receiveNotification(notificationList: java.util.List[eu.wisebed.api.v3.controller.Notification]) {
       logger.info("SoapReservationController.receiveNotification(" + notificationList + ")")
       for (notification <- notificationList) {
-        notifyNotification(notification)
+        val nodeUrn: String = notification.getNodeUrn
+        val timestamp: DateTime = new DateTime(notification.getTimestamp.toGregorianCalendar)
+        val msg: String = notification.getMsg
+        notifyNotification(new Notification(nodeUrn, timestamp, msg))
       }
     }
 

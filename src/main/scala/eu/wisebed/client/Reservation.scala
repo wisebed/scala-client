@@ -1,7 +1,5 @@
 package eu.wisebed.client
 
-import com.google.common.cache.Cache
-import com.google.common.cache.CacheBuilder
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 
@@ -11,25 +9,23 @@ import de.uniluebeck.itm.tr.util.ProgressListenableFuture
 import de.uniluebeck.itm.tr.util.ProgressSettableFuture
 import de.uniluebeck.itm.tr.util.TimedCache
 
-import eu.wisebed.api.v3.common.Message
 import eu.wisebed.api.v3.controller.RequestStatus
 import eu.wisebed.api.v3.wsn.WSN
 
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.ExecutionException
 
 import org.joda.time.DateTime
 
 import scala.util.Random
 import scala.collection.JavaConversions._
 import scala.collection.immutable.Nil
-import scala.collection.mutable.Buffer
+import javax.annotation.Nullable
 
 
 abstract class Reservation(val wsn: WSN) extends Logging {
 
   assertConnected()
-  
+
   abstract class Operation { def isComplete(value: Int): Boolean }
   object RESET extends Operation { def isComplete(value: Int) = value >= 1 }
 
@@ -39,9 +35,10 @@ abstract class Reservation(val wsn: WSN) extends Logging {
 
   private val requestCache: TimedCache[Long, (Operation, Map[String, ProgressSettableFuture[Any]])] = new TimedCache()
 
-  private var notificationListeners: List[String => Unit] = Nil
-  def onNotification(listener: String => Unit) = notificationListeners ::= listener
-  protected def notifyNotification(notification: String) = for (listener <- notificationListeners) listener(notification)
+  case class Notification(@Nullable nodeUrn:String, timestamp: DateTime, msg: String)
+  private var notificationListeners: List[Notification => Unit] = Nil
+  def onNotification(listener: Notification => Unit) = notificationListeners ::= listener
+  protected def notifyNotification(notification: Notification) = for (listener <- notificationListeners) listener(notification)
 
   private var messageListeners: List[(String, DateTime, Array[Byte]) => Unit] = Nil
   def onMessage(listener: (String, DateTime, Array[Byte]) => Unit) = messageListeners ::= listener
@@ -74,12 +71,12 @@ abstract class Reservation(val wsn: WSN) extends Logging {
     (requestFuture, requestMap)
   }
 
-  def shutdown();
+  def shutdown()
 
-  protected def assertConnected();
+  protected def assertConnected()
 
   protected def progressRequestStatusReceived(requestStatus: RequestStatus) {
-    val requestId = requestStatus.getRequestId();
+    val requestId = requestStatus.getRequestId()
     requestCache.get(requestId) match {
       case (operation, progressMap) => {
         for (status <- requestStatus.getStatus()) {
