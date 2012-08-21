@@ -1,8 +1,8 @@
 package eu.wisebed.client
 
-import eu.wisebed.api.v3.rs.{ RS, ConfidentialReservationData }
+import eu.wisebed.api.v3.rs.RS
 import eu.wisebed.api.v3.snaa.{ SNAA, AuthenticationTriple }
-import javax.xml.datatype.{XMLGregorianCalendar, DatatypeFactory}
+import javax.xml.datatype.DatatypeFactory
 import org.apache.log4j.{ PatternLayout, ConsoleAppender, Level }
 import org.joda.time.DateTime
 import java.io.File
@@ -43,7 +43,7 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
   def snaa: SNAA = {
     _snaa.getOrElse({
       config.snaaEndpointUrl match {
-        case Some(url) => WisebedServiceHelper.getSNAAService(url.toString())
+        case Some(url) => WisebedServiceHelper.getSNAAService(url.toString)
         case None => {
           loadConfigurationFromTestbed()
           _snaa.get
@@ -55,7 +55,7 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
   def rs: RS = {
     _rs.getOrElse({
       config.rsEndpointUrl match {
-        case Some(url) => WisebedServiceHelper.getRSService(url.toString())
+        case Some(url) => WisebedServiceHelper.getRSService(url.toString)
         case None => {
           loadConfigurationFromTestbed()
           _rs.get
@@ -67,7 +67,9 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
   def sm: SessionManagement = {
     _sm.getOrElse({
       config.smEndpointUrl match {
-        case Some(url) => { WisebedServiceHelper.getSessionManagementService(url.toString()) }
+        case Some(url) => {
+          _sm = Some(WisebedServiceHelper.getSessionManagementService(url.toString))
+        }
         case None => throwIllegalStateException
       }
     })
@@ -76,7 +78,7 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
   def wsn: WSN = {
     _wsn.getOrElse({
       throw new IllegalStateException("You must call connectToReservation() before accessing the wsn service!")
-    });
+    })
   }
 
   def config: ConfigClass = _config match {
@@ -174,11 +176,11 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
     }
 
     _testbedOptions match {
-      case Some(options) => _testbedOptions
+      case Some(_) => _testbedOptions
       case None => {
         val map = new collection.mutable.HashMap[String, String]()
         options.value.foreach(kv => map += ((kv.getKey, kv.getValue)))
-        Some(map)
+        _testbedOptions = Some(map)
       }
     }
   }
