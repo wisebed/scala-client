@@ -25,9 +25,9 @@ class SoapReservation(wsn1: WSN,
     def receive(messageList: java.util.List[Message]) {
       logger.trace("SoapReservationController.receive(" + messageList + ")")
       for (message <- messageList) {
-        val nodeUrn = message.getSourceNodeUrn()
-        val timestamp = new DateTime(message.getTimestamp().toGregorianCalendar())
-        val buffer = message.getBinaryData()
+        val nodeUrn = message.getSourceNodeUrn
+        val timestamp = new DateTime(message.getTimestamp.toGregorianCalendar)
+        val buffer = message.getBinaryData
         notifyMessage(nodeUrn, timestamp, buffer)
       }
     }
@@ -46,25 +46,25 @@ class SoapReservation(wsn1: WSN,
       }
     }
 
-    def experimentStarted() {
+    def reservationStarted() {
       logger.trace("SoapReservationController.experimentStarted()")
       notifyExperimentStarted()
     }
 
-    def experimentEnded() {
+    def reservationEnded() {
       logger.trace("SoapReservationController.experimentEnded()")
       notifyExperimentEnded()
     }
   }
 
-  protected def assertConnected() = {
+  protected def assertConnected() {
     _endpoint match {
       case Some(_) => // nothing to do
       case None => {
         _endpoint = Some(javax.xml.ws.Endpoint.publish(
-          controllerEndpointUrl.toString(),
+          controllerEndpointUrl.toString,
           new SoapReservationController()))
-        wsn.addController(controllerEndpointUrl.toString())
+        wsn.addController(controllerEndpointUrl.toString)
       }
     }
   }
@@ -73,7 +73,7 @@ class SoapReservation(wsn1: WSN,
     _endpoint match {
       case Some(e) => {
         try {
-          wsn.removeController(controllerEndpointUrl.toString())
+          wsn.removeController(controllerEndpointUrl.toString)
         } catch {
           case e:Exception => // ignore
         }
