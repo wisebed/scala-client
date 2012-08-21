@@ -2,7 +2,7 @@ package eu.wisebed.client
 
 import eu.wisebed.api.v3.rs.{ RS, ConfidentialReservationData }
 import eu.wisebed.api.v3.snaa.{ SNAA, AuthenticationTriple }
-import javax.xml.datatype.DatatypeFactory
+import javax.xml.datatype.{XMLGregorianCalendar, DatatypeFactory}
 import org.apache.log4j.{ PatternLayout, ConsoleAppender, Level }
 import org.joda.time.DateTime
 import java.io.File
@@ -116,11 +116,12 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
     durationInMinutes: Int,
     nodeUrns: Array[String]): List[SecretReservationKey] = {
 
-    val reservationData = buildConfidentialReservationData(
-      durationInMinutes,
-      nodeUrns)
+    val datatypeFactory = DatatypeFactory.newInstance()
+    val from = datatypeFactory.newXMLGregorianCalendar(DateTime.now.toGregorianCalendar)
+    val to = datatypeFactory.newXMLGregorianCalendar(DateTime.now.plusMinutes(durationInMinutes).toGregorianCalendar)
+    val nodeUrnList = List(nodeUrns:_*)
 
-    List(rs.makeReservation(secretAuthenticationKeys, reservationData): _*)
+    List(rs.makeReservation(secretAuthenticationKeys, nodeUrnList, from, to): _*)
   }
 
   def reservation: Reservation = {
@@ -191,20 +192,6 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
         triple.setPassword(credential.password)
         triple
       })
-  }
-
-  private def buildConfidentialReservationData(durationInMinutes: Int, nodeUrns: Array[String]): ConfidentialReservationData = {
-
-    val datatypeFactory: DatatypeFactory = DatatypeFactory.newInstance()
-    val data = new ConfidentialReservationData()
-    val from = new DateTime()
-    val to = from.plusMinutes(durationInMinutes)
-
-    data.setFrom(datatypeFactory.newXMLGregorianCalendar(from.toGregorianCalendar))
-    data.setTo(datatypeFactory.newXMLGregorianCalendar(to.toGregorianCalendar))
-    nodeUrns.foreach(nodeUrn => data.getNodeUrns().add(nodeUrn))
-
-    data
   }
 
   /**
