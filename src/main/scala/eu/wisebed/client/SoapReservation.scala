@@ -7,6 +7,7 @@ import java.net.URL
 import com.weiglewilczek.slf4s.Logging
 import scala.collection.JavaConversions._
 import org.joda.time.DateTime
+import eu.wisebed.api.v3.common.NodeUrn
 
 class SoapReservation(wsn1: WSN,
                       val controllerEndpointUrl: URL,
@@ -21,11 +22,11 @@ class SoapReservation(wsn1: WSN,
     targetNamespace = "http://wisebed.eu/api/v3/controller")
   private class SoapReservationController extends Controller {
 
-    def nodesAttached(nodeUrns: java.util.List[String]) {
+    def nodesAttached(nodeUrns: java.util.List[NodeUrn]) {
       notifyNodesAttached(List(nodeUrns:_*))
     }
 
-    def nodesDetached(nodeUrns: java.util.List[String]) {
+    def nodesDetached(nodeUrns: java.util.List[NodeUrn]) {
       notifyNodesDetached(List(nodeUrns:_*))
     }
 
@@ -49,10 +50,7 @@ class SoapReservation(wsn1: WSN,
     def receiveNotification(notificationList: java.util.List[eu.wisebed.api.v3.controller.Notification]) {
       logger.info("SoapReservationController.receiveNotification(" + notificationList + ")")
       for (notification <- notificationList) {
-        val nodeUrn: String = notification.getNodeUrn
-        val timestamp: DateTime = new DateTime(notification.getTimestamp.toGregorianCalendar)
-        val msg: String = notification.getMsg
-        notifyNotification(new Notification(nodeUrn, timestamp, msg))
+        notifyNotification(new Notification(notification.getNodeUrn, notification.getTimestamp, notification.getMsg))
       }
     }
 

@@ -16,8 +16,13 @@ import scopt.mutable.OptionParser
 import com.weiglewilczek.slf4s.Logging
 import eu.wisebed.api.v3.wsn.WSN
 import java.net.URL
+import eu.wisebed.api.v3.common.NodeUrnPrefix
+import eu.wisebed.api.v3.common.NodeUrn
 
 abstract class WisebedClient[ConfigClass <: Config] extends Logging {
+
+  protected implicit def stringToNodeUrn(s: String): NodeUrn = new NodeUrn(s)
+  protected implicit def stringToNodeUrnPrefix(s: String): NodeUrnPrefix = new NodeUrnPrefix(s)
 
   de.uniluebeck.itm.tr.util.Logging.setLoggingDefaults(
     Level.INFO,
@@ -36,7 +41,7 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
   private var _testbedOptions: Option[collection.mutable.HashMap[String, String]] = None
 
   private var _wsn: Option[WSN] = None
-  
+
   private var _reservation: Option[SoapReservation] = None
 
   def snaa: SNAA = {
@@ -116,9 +121,9 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
 
   def makeReservation(secretAuthenticationKeys: List[SecretAuthenticationKey],
     durationInMinutes: Int,
-    nodeUrns: List[String]): List[SecretReservationKey] = {
+    nodeUrns: List[NodeUrn]): List[SecretReservationKey] = {
 
-    val nodeUrnList = List(nodeUrns:_*)
+    val nodeUrnList = List(nodeUrns: _*)
     val from = DateTime.now
     val to = DateTime.now.plusMinutes(durationInMinutes)
 
@@ -133,12 +138,12 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
 
   def connectToReservation(secretReservationKeyString: String): Reservation = {
     // TODO handle connections to multiple reservations
-    
+
     val srks = parseSecretReservationKeys(secretReservationKeyString)
-    
+
     val wsnUrl = sm.getInstance(srks)
     _wsn = Some(WisebedServiceHelper.getWSNService(wsnUrl))
-    
+
     val reservation = new SoapReservation(wsn, new URL("http://opium.local:1234/controller"))
     _reservation = Some(reservation)
     reservation
@@ -204,7 +209,7 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
         {
           val split = urnPrefixSrkPair.split(',')
           val srk = new SecretReservationKey()
-          srk.setUrnPrefix(split(0).trim())
+          srk.setUrnPrefix(new NodeUrnPrefix(split(0).trim()))
           srk.setSecretReservationKey(split(1).trim())
           srk
         }

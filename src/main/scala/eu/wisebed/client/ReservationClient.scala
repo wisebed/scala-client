@@ -6,10 +6,11 @@ import java.io.File
 import scopt.mutable.OptionParser
 import org.apache.log4j.Logger
 import org.apache.log4j.Level
+import eu.wisebed.api.v3.common.NodeUrn
 
 class ReservationClientConfig extends Config {
   var durationInMinutes: Int = 0
-  var nodeUrns: List[String] = null
+  var nodeUrns: List[NodeUrn] = null
 }
 
 class ReservationClient(args: Array[String]) extends WisebedClient[ReservationClientConfig] {
@@ -26,7 +27,7 @@ class ReservationClient(args: Array[String]) extends WisebedClient[ReservationCl
 
     opt("n", "nodeUrns", "a comma-separated list of node URNs that are to be reserved", {
       nodeUrnString: String => {
-        initialConfig.nodeUrns = List(nodeUrnString.split(",").map(nodeUrn => nodeUrn.trim):_*)
+        initialConfig.nodeUrns = List(nodeUrnString.split(",").map(nodeUrn => new NodeUrn(nodeUrn.trim)):_*)
       }
     })
   }

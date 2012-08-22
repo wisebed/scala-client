@@ -10,10 +10,11 @@ import com.google.common.util.concurrent.MoreExecutors
 import scala.collection.JavaConversions._
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import eu.wisebed.api.v3.common.NodeUrn
 
 class ResetClientConfig extends Config {
   var srkString: Option[String] = None
-  var nodeUrns: Option[List[String]] = None
+  var nodeUrns: Option[List[NodeUrn]] = None
 }
 
 class ResetClient(args: Array[String]) extends WisebedClient[ResetClientConfig] {
@@ -27,13 +28,13 @@ class ResetClient(args: Array[String]) extends WisebedClient[ResetClientConfig] 
     })
 
     opt("n", "nodeUrns", "a comma-separated list of node URNs that are to be reserved", {
-      nodeUrnString: String => { initialConfig.nodeUrns = Some(List(nodeUrnString.split(",").map(nodeUrn => nodeUrn.trim): _*)) }
+      nodeUrnString: String => { initialConfig.nodeUrns = Some(List(nodeUrnString.split(",").map(nodeUrn => new NodeUrn(nodeUrn.trim)): _*)) }
     })
   }
 
   init(args, initialConfig, optionParser)
 
-  def reset(): (ListenableFuture[java.util.List[Any]], Map[String, ProgressListenableFuture[Any]]) = {
+  def reset(): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressListenableFuture[Any]]) = {
 
     val reservation: Reservation = connectToReservation(config.srkString.get)
     reservation.reset(config.nodeUrns.get, 10, TimeUnit.SECONDS)
@@ -45,7 +46,7 @@ object Reset {
   def main(args: Array[String]) {
 
     val client = new ResetClient(args)
-    val (future, futureMap): (ListenableFuture[Any], Map[String, ProgressListenableFuture[Any]]) = client.reset()
+    val (future, futureMap): (ListenableFuture[Any], Map[NodeUrn, ProgressListenableFuture[Any]]) = client.reset()
 
     for ((nodeUrn, future) <- futureMap) {
 

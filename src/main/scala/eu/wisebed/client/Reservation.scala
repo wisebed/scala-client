@@ -2,24 +2,19 @@ package eu.wisebed.client
 
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-
 import com.weiglewilczek.slf4s.Logging
-
 import de.uniluebeck.itm.tr.util.ProgressListenableFuture
 import de.uniluebeck.itm.tr.util.ProgressSettableFuture
 import de.uniluebeck.itm.tr.util.TimedCache
-
 import eu.wisebed.api.v3.controller.RequestStatus
 import eu.wisebed.api.v3.wsn.WSN
-
 import java.util.concurrent.TimeUnit
-
 import org.joda.time.DateTime
-
 import scala.util.Random
 import scala.collection.JavaConversions._
 import scala.collection.immutable.Nil
 import javax.annotation.Nullable
+import eu.wisebed.api.v3.common.NodeUrn
 
 
 abstract class Reservation(val wsn: WSN) extends Logging {
@@ -33,24 +28,24 @@ abstract class Reservation(val wsn: WSN) extends Logging {
 
   private val requestIdGenerator: Random = new Random()
 
-  private val requestCache: TimedCache[Long, (Operation, Map[String, ProgressSettableFuture[Any]])] = new TimedCache()
+  private val requestCache: TimedCache[Long, (Operation, Map[NodeUrn, ProgressSettableFuture[Any]])] = new TimedCache()
 
-  private var nodesAttachedListeners: List[List[String] => Unit] = Nil
-  def onNodesAttached(listener: List[String] => Unit) = nodesAttachedListeners ::= listener
-  protected def notifyNodesAttached(nodeUrns: List[String]) = for (listener <- nodesAttachedListeners) listener(nodeUrns)
+  private var nodesAttachedListeners: List[List[NodeUrn] => Unit] = Nil
+  def onNodesAttached(listener: List[NodeUrn] => Unit) = nodesAttachedListeners ::= listener
+  protected def notifyNodesAttached(nodeUrns: List[NodeUrn]) = for (listener <- nodesAttachedListeners) listener(nodeUrns)
 
-  private var nodesDetachedListeners: List[List[String] => Unit] = Nil
-  def onNodesDetached(listener: List[String] => Unit) = nodesDetachedListeners ::= listener
-  protected def notifyNodesDetached(nodeUrns: List[String]) = for (listener <- nodesDetachedListeners) listener(nodeUrns)
+  private var nodesDetachedListeners: List[List[NodeUrn] => Unit] = Nil
+  def onNodesDetached(listener: List[NodeUrn] => Unit) = nodesDetachedListeners ::= listener
+  protected def notifyNodesDetached(nodeUrns: List[NodeUrn]) = for (listener <- nodesDetachedListeners) listener(nodeUrns)
 
-  case class Notification(@Nullable nodeUrn:String, timestamp: DateTime, msg: String)
+  case class Notification(@Nullable nodeUrn:NodeUrn, timestamp: DateTime, msg: String)
   private var notificationListeners: List[Notification => Unit] = Nil
   def onNotification(listener: Notification => Unit) = notificationListeners ::= listener
   protected def notifyNotification(notification: Notification) = for (listener <- notificationListeners) listener(notification)
 
-  private var messageListeners: List[(String, DateTime, Array[Byte]) => Unit] = Nil
-  def onMessage(listener: (String, DateTime, Array[Byte]) => Unit) = messageListeners ::= listener
-  protected def notifyMessage(nodeUrn: String, timestamp: DateTime, buffer: Array[Byte]) = {
+  private var messageListeners: List[(NodeUrn, DateTime, Array[Byte]) => Unit] = Nil
+  def onMessage(listener: (NodeUrn, DateTime, Array[Byte]) => Unit) = messageListeners ::= listener
+  protected def notifyMessage(nodeUrn: NodeUrn, timestamp: DateTime, buffer: Array[Byte]) = {
     for (listener <- messageListeners) listener(nodeUrn, timestamp, buffer)
   }
 
@@ -62,7 +57,7 @@ abstract class Reservation(val wsn: WSN) extends Logging {
   def onExperimentEnded(listener: () => Unit) = experimentEndedListeners ::= listener
   protected def notifyExperimentEnded() = for (listener <- experimentEndedListeners) listener()
 
-  def reset(nodeUrns: List[String], timeout: Int, timeUnit: TimeUnit): (ListenableFuture[java.util.List[Any]], Map[String, ProgressSettableFuture[Any]]) = {
+  def reset(nodeUrns: List[NodeUrn], timeout: Int, timeUnit: TimeUnit): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressSettableFuture[Any]]) = {
 
     assertConnected()
 

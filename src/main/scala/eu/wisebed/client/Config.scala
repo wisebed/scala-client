@@ -4,8 +4,9 @@ import java.io.{ File, FileReader }
 import java.net.URL
 import java.util.Properties
 import collection.mutable
+import eu.wisebed.api.v3.common.NodeUrnPrefix
 
-class Credentials(val urnPrefix: String, val username: String, val password: String)
+class Credentials(val urnPrefix: NodeUrnPrefix, val username: String, val password: String)
 
 class Config {
 
@@ -50,6 +51,8 @@ class Config {
         val split = stringValue.split(",")
         split.map(s => s.trim())
       }
+      
+      implicit def stringToNodeUrnPrefix(s:String):NodeUrnPrefix = new NodeUrnPrefix(s)
 
       val urnPrefixes: Array[String] = properties.get("testbed.urnprefixes")
       val usernames: Array[String] = properties.get("testbed.usernames")
