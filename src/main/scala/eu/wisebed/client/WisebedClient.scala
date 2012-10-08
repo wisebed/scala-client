@@ -165,9 +165,10 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
 
     val rsEndpointUrl = new Holder[String]()
     val snaaEndpointUrl = new Holder[String]()
+    val servedNodeUrnPrefixes = new Holder[java.util.List[NodeUrnPrefix]]()
     val options = new Holder[java.util.List[KeyValuePair]]()
 
-    sm.getConfiguration(rsEndpointUrl, snaaEndpointUrl, options)
+    sm.getConfiguration(rsEndpointUrl, snaaEndpointUrl, servedNodeUrnPrefixes, options)
 
     _rs = _rs match {
       case Some(endpoint) => _rs
