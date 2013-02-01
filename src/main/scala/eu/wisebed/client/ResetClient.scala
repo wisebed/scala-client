@@ -1,19 +1,16 @@
 package eu.wisebed.client
 
-import com.weiglewilczek.slf4s.Logging
-import eu.wisebed.api.v3.common.SecretReservationKey
-import java.io.File
 import scopt.mutable.OptionParser
 import de.uniluebeck.itm.tr.util.ProgressListenableFuture
 import java.util.concurrent.TimeUnit
 import com.google.common.util.concurrent.MoreExecutors
-import scala.collection.JavaConversions._
-import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import eu.wisebed.api.v3.common.NodeUrn
 
 class ResetClientConfig extends Config {
+
   var srkString: Option[String] = None
+
   var nodeUrns: Option[List[NodeUrn]] = None
 }
 
@@ -24,11 +21,15 @@ class ResetClient(args: Array[String]) extends WisebedClient[ResetClientConfig] 
   private val optionParser = new OptionParser("reset", true) {
 
     opt("s", "secretReservationKey", "the secret reservation key identifying the reservation (issued by the RS)", {
-      srkString: String => { initialConfig.srkString = Some(srkString) }
+      srkString: String => {
+        initialConfig.srkString = Some(srkString)
+      }
     })
 
     opt("n", "nodeUrns", "a comma-separated list of node URNs that are to be reserved", {
-      nodeUrnString: String => { initialConfig.nodeUrns = Some(List(nodeUrnString.split(",").map(nodeUrn => new NodeUrn(nodeUrn.trim)): _*)) }
+      nodeUrnString: String => {
+        initialConfig.nodeUrns = Some(List(nodeUrnString.split(",").map(nodeUrn => new NodeUrn(nodeUrn.trim)): _*))
+      }
     })
   }
 
@@ -46,13 +47,14 @@ object Reset {
   def main(args: Array[String]) {
 
     val client = new ResetClient(args)
-    val (future, futureMap): (ListenableFuture[Any], Map[NodeUrn, ProgressListenableFuture[Any]]) = client.reset()
+    val (future, futureMap): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressListenableFuture[Any]]) = client
+      .reset()
 
     for ((nodeUrn, future) <- futureMap) {
 
       future.addProgressListener(new Runnable() {
         def run() {
-          println("Resetting progress for \"" + nodeUrn + "\": " + future.getProgress())
+          println("Resetting progress for \"" + nodeUrn + "\": " + future.getProgress)
         }
       }, MoreExecutors.sameThreadExecutor())
 
@@ -69,7 +71,7 @@ object Reset {
     }
 
     future.addListener(new Runnable() {
-      def run() = {
+      def run() {
         println("Resetting nodes completed. Shutting down...")
         client.shutdown()
         System.exit(0)

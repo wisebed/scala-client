@@ -1,34 +1,32 @@
 package eu.wisebed.client
 
 import eu.wisebed.api.v3.rs.RS
-import eu.wisebed.api.v3.snaa.{ SNAA, AuthenticationTriple }
-import org.apache.log4j.{ PatternLayout, ConsoleAppender, Level }
-import org.joda.time.DateTime
-import java.io.File
+import eu.wisebed.api.v3.snaa.{SNAA, AuthenticationTriple}
+import org.apache.log4j.{PatternLayout, ConsoleAppender, Level}
+import org.joda.time.{Duration, DateTime}
 import eu.wisebed.api.v3.WisebedServiceHelper
 import eu.wisebed.api.v3.sm.SessionManagement
 import javax.xml.ws.Holder
-import eu.wisebed.api.v3.common.{ SecretReservationKey, SecretAuthenticationKey, KeyValuePair }
+import eu.wisebed.api.v3.common.{SecretReservationKey, SecretAuthenticationKey, KeyValuePair}
 import scala.collection
 import collection.mutable
 import scala.collection.JavaConversions._
 import scopt.mutable.OptionParser
-import com.weiglewilczek.slf4s.Logging
 import eu.wisebed.api.v3.wsn.WSN
-import java.net.URL
 import eu.wisebed.api.v3.common.NodeUrnPrefix
 import eu.wisebed.api.v3.common.NodeUrn
+import util.Logging
 
 abstract class WisebedClient[ConfigClass <: Config] extends Logging {
 
   protected implicit def stringToNodeUrn(s: String): NodeUrn = new NodeUrn(s)
+
   protected implicit def stringToNodeUrnPrefix(s: String): NodeUrnPrefix = new NodeUrnPrefix(s)
 
   de.uniluebeck.itm.tr.util.Logging.setLoggingDefaults(
     Level.INFO,
-    new ConsoleAppender(
-      new PatternLayout(de.uniluebeck.itm.tr.util.Logging.DEFAULT_PATTERN_LAYOUT),
-      "System.err"))
+    new ConsoleAppender(new PatternLayout(de.uniluebeck.itm.tr.util.Logging.DEFAULT_PATTERN_LAYOUT))
+  )
 
   private var _snaa: Option[SNAA] = None
 
@@ -101,16 +99,21 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
 
   def init(args: Array[String], initialConfig: ConfigClass, configParser: OptionParser) {
 
-    configParser.opt("c", "config", "<configfile>", "the testbed configuration file", {
-      configFileName: String => { initialConfig.parseFromConfigFile(new File(configFileName)) }
-    })
+    configParser.opt(
+      "config",
+      "the testbed configuration file",
+      initialConfig.parseFromConfigFile
+    )
 
-    if (configParser.parse(args)) {
+    configParser.opt(
+      "controllerEndpointUrl",
+      "The endpoint URL of the local controller",
+      initialConfig.setControllerEndpointUrl
+    )
 
-      _config = Some(initialConfig)
-
-    } else {
-      throw new IllegalArgumentException("Could not parse config file!")
+    configParser.parse(args) match {
+      case true => _config = Some(initialConfig)
+      case false => throw new IllegalArgumentException("Invalid command line parameters!")
     }
   }
 
@@ -120,12 +123,13 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
   }
 
   def makeReservation(secretAuthenticationKeys: List[SecretAuthenticationKey],
-    durationInMinutes: Int,
-    nodeUrns: List[NodeUrn]): List[SecretReservationKey] = {
+                      offset: Duration,
+                      duration: Duration,
+                      nodeUrns: List[NodeUrn]): List[SecretReservationKey] = {
 
     val nodeUrnList = List(nodeUrns: _*)
-    val from = DateTime.now
-    val to = DateTime.now.plusMinutes(durationInMinutes)
+    val from = DateTime.now.plus(offset)
+    val to = from.plus(duration)
 
     List(rs.makeReservation(secretAuthenticationKeys, nodeUrnList, from, to): _*)
   }
@@ -144,7 +148,12 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
     val wsnUrl = sm.getInstance(srks)
     _wsn = Some(WisebedServiceHelper.getWSNService(wsnUrl))
 
-    val reservation = new SoapReservation(wsn, new URL("http://opium.local:1234/controller"))
+    val controllerEndpointUrl = config.controllerEndpointUrl match {
+      case None => throw new RuntimeException("Controller endpoint URL must be set")
+      case Some(x) => x
+    }
+
+    val reservation = new SoapReservation(wsn, controllerEndpointUrl)
     _reservation = Some(reservation)
     reservation
   }
@@ -206,14 +215,13 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
    */
   private def parseSecretReservationKeys(srkString: String): List[SecretReservationKey] = {
     List(augmentString(srkString).split(';').map({
-      urnPrefixSrkPair: String =>
-        {
-          val split = urnPrefixSrkPair.split(',')
-          val srk = new SecretReservationKey()
-          srk.setUrnPrefix(new NodeUrnPrefix(split(0).trim()))
-          srk.setSecretReservationKey(split(1).trim())
-          srk
-        }
+      urnPrefixSrkPair: String => {
+        val split = urnPrefixSrkPair.split(',')
+        val srk = new SecretReservationKey()
+        srk.setUrnPrefix(new NodeUrnPrefix(split(0).trim()))
+        srk.setSecretReservationKey(split(1).trim())
+        srk
+      }
     }): _*)
   }
 }

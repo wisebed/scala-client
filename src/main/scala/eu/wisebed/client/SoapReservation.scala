@@ -1,15 +1,16 @@
 package eu.wisebed.client
 
 import eu.wisebed.api.v3.wsn.WSN
-import eu.wisebed.api.v3.controller.{Notification, Controller, RequestStatus}
+import eu.wisebed.api.v3.controller.{Controller, RequestStatus}
 import eu.wisebed.api.v3.common.Message
 import java.net.URL
-import com.weiglewilczek.slf4s.Logging
 import scala.collection.JavaConversions._
 import org.joda.time.DateTime
 import eu.wisebed.api.v3.common.NodeUrn
+import javax.xml.ws.Endpoint
+import util.Logging
 
-class SoapReservation(wsn1: WSN,
+class SoapReservation(val wsn1: WSN,
                       val controllerEndpointUrl: URL,
                       private var _endpoint: Option[javax.xml.ws.Endpoint] = None)
   extends Reservation(wsn1) with Logging {
@@ -50,7 +51,11 @@ class SoapReservation(wsn1: WSN,
     def receiveNotification(notificationList: java.util.List[eu.wisebed.api.v3.controller.Notification]) {
       logger.info("SoapReservationController.receiveNotification(" + notificationList + ")")
       for (notification <- notificationList) {
-        notifyNotification(new Notification(notification.getNodeUrn, notification.getTimestamp, notification.getMsg))
+        val nodeUrn: Option[NodeUrn] = notification.getNodeUrn match {
+          case urn: NodeUrn => Some(urn)
+          case _ => None
+        }
+        notifyNotification(new Notification(nodeUrn, notification.getTimestamp, notification.getMsg))
       }
     }
 
@@ -69,9 +74,8 @@ class SoapReservation(wsn1: WSN,
     _endpoint match {
       case Some(_) => // nothing to do
       case None => {
-        _endpoint = Some(javax.xml.ws.Endpoint.publish(
-          controllerEndpointUrl.toString,
-          new SoapReservationController()))
+        val endpoint: Endpoint = Endpoint.publish(controllerEndpointUrl.toString, new SoapReservationController())
+        _endpoint = Some(endpoint)
         wsn.addController(controllerEndpointUrl.toString)
       }
     }
