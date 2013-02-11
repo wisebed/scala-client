@@ -219,7 +219,7 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
         val split = urnPrefixSrkPair.split(',')
         val srk = new SecretReservationKey()
         srk.setUrnPrefix(new NodeUrnPrefix(split(0).trim()))
-        srk.setSecretReservationKey(split(1).trim())
+        srk.setKey(split(1).trim())
         srk
       }
     }): _*)

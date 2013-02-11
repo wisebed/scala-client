@@ -14,7 +14,7 @@ import scala.collection.JavaConversions._
 import scala.collection.immutable.Nil
 import eu.wisebed.api.v3.common.NodeUrn
 import util.Logging
-
+import eu.wisebed.wiseml.WiseMLHelper
 
 abstract class Reservation(val wsn: WSN) extends Logging {
 
@@ -34,12 +34,16 @@ abstract class Reservation(val wsn: WSN) extends Logging {
     nodesAttachedListeners ::= listener
   }
   protected def notifyNodesAttached(nodeUrns: List[NodeUrn]) {
-    for (listener <- nodesAttachedListeners) listener(nodeUrns)
+    for (listener <- nodesAttachedListeners) {
+      listener(nodeUrns)
+    }
   }
 
   private var nodesDetachedListeners: List[List[NodeUrn] => Unit] = Nil
   protected def notifyNodesDetached(nodeUrns: List[NodeUrn]) {
-    for (listener <- nodesDetachedListeners) listener(nodeUrns)
+    for (listener <- nodesDetachedListeners) {
+      listener(nodeUrns)
+    }
   }
   def onNodesDetached(listener: List[NodeUrn] => Unit) {
     nodesDetachedListeners ::= listener
@@ -51,7 +55,9 @@ abstract class Reservation(val wsn: WSN) extends Logging {
     notificationListeners ::= listener
   }
   protected def notifyNotification(notification: Notification) {
-    for (listener <- notificationListeners) listener(notification)
+    for (listener <- notificationListeners) {
+      listener(notification)
+    }
   }
 
   private var messageListeners: List[(NodeUrn, DateTime, Array[Byte]) => Unit] = Nil
@@ -59,7 +65,9 @@ abstract class Reservation(val wsn: WSN) extends Logging {
     messageListeners ::= listener
   }
   protected def notifyMessage(nodeUrn: NodeUrn, timestamp: DateTime, buffer: Array[Byte]) {
-    for (listener <- messageListeners) listener(nodeUrn, timestamp, buffer)
+    for (listener <- messageListeners) {
+      listener(nodeUrn, timestamp, buffer)
+    }
   }
 
   private var experimentStartedListeners: List[() => Unit] = Nil
@@ -67,7 +75,9 @@ abstract class Reservation(val wsn: WSN) extends Logging {
     experimentStartedListeners ::= listener
   }
   protected def notifyExperimentStarted() {
-    for (listener <- experimentStartedListeners) listener()
+    for (listener <- experimentStartedListeners) {
+      listener()
+    }
   }
 
   private var experimentEndedListeners: List[() => Unit] = Nil
@@ -75,7 +85,9 @@ abstract class Reservation(val wsn: WSN) extends Logging {
     experimentEndedListeners ::= listener
   }
   protected def notifyExperimentEnded() {
-    for (listener <- experimentEndedListeners) listener()
+    for (listener <- experimentEndedListeners) {
+      listener()
+    }
   }
 
   def reset(nodeUrns: List[NodeUrn], timeout: Int, timeUnit: TimeUnit): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressSettableFuture[Any]]) = {
@@ -86,13 +98,20 @@ abstract class Reservation(val wsn: WSN) extends Logging {
     val requestMap = Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[Any]())): _*)
 
     var futures: List[ProgressListenableFuture[Any]] = Nil
-    for (future <- requestMap.values) futures ::= future
+    for (future <- requestMap.values) {
+      futures ::= future
+    }
     val requestFuture: ListenableFuture[java.util.List[Any]] = Futures.allAsList(futures)
 
     requestCache.put(requestId, (RESET, requestMap), timeout, timeUnit)
     wsn.resetNodes(requestId, nodeUrns)
 
     (requestFuture, requestMap)
+  }
+
+  def reservedNodeUrns(): List[NodeUrn] = {
+    assertConnected()
+    WiseMLHelper.getNodeUrns(wsn.getNetwork).toList.map(nodeUrnString => {new NodeUrn(nodeUrnString)})
   }
 
   def shutdown()
