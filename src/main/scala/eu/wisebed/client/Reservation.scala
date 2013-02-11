@@ -1,10 +1,6 @@
 package eu.wisebed.client
 
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
-import de.uniluebeck.itm.tr.util.ProgressListenableFuture
-import de.uniluebeck.itm.tr.util.ProgressSettableFuture
-import de.uniluebeck.itm.tr.util.TimedCache
+import de.uniluebeck.itm.tr.util._
 import eu.wisebed.api.v3.controller.RequestStatus
 import eu.wisebed.api.v3.wsn.{FlashProgramsConfiguration, WSN}
 import java.util.concurrent.TimeUnit
@@ -15,6 +11,7 @@ import scala.collection.immutable.Nil
 import eu.wisebed.api.v3.common.NodeUrn
 import util.Logging
 import eu.wisebed.wiseml.WiseMLHelper
+import scala.Some
 
 abstract class Reservation(val wsn: WSN) extends Logging {
 
@@ -39,7 +36,7 @@ abstract class Reservation(val wsn: WSN) extends Logging {
 
   private val requestIdGenerator: Random = new Random()
 
-  private val requestCache: TimedCache[Long, (Operation, Map[NodeUrn, ProgressSettableFuture[Any]])] = new TimedCache()
+  private val requestCache: TimedCache[Long, (Operation, ProgressSettableFutureMap[NodeUrn, Any])] = new TimedCache()
 
   private var nodesAttachedListeners: List[List[NodeUrn] => Unit] = Nil
 
@@ -117,45 +114,37 @@ abstract class Reservation(val wsn: WSN) extends Logging {
 
   def reset(nodeUrns: List[NodeUrn],
             timeout: Int,
-            timeUnit: TimeUnit): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressSettableFuture[Any]]) = {
+            timeUnit: TimeUnit): ProgressListenableFutureMap[NodeUrn, Any] = {
 
     assertConnected()
 
     val requestId = requestIdGenerator.nextLong()
-    val requestMap = Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[Any]())): _*)
-
-    var futures: List[ProgressListenableFuture[Any]] = Nil
-    for (future <- requestMap.values) {
-      futures ::= future
-    }
-    val requestFuture: ListenableFuture[java.util.List[Any]] = Futures.allAsList(futures)
+    val requestMap = new ProgressSettableFutureMap[NodeUrn, Any](
+      Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[Any]())): _*)
+    )
 
     requestCache.put(requestId, (RESET_OPERATION, requestMap), timeout, timeUnit)
     wsn.resetNodes(requestId, nodeUrns)
 
-    (requestFuture, requestMap)
+    requestMap
   }
 
   def flash(nodeUrns: List[NodeUrn],
             imageBytes: Array[Byte],
             timeout: Long,
-            timeUnit: TimeUnit): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressListenableFuture[Any]]) = {
+            timeUnit: TimeUnit): ProgressListenableFutureMap[NodeUrn, Any] = {
 
     assertConnected()
 
     val requestId = requestIdGenerator.nextLong()
-    val requestMap = Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[Any]())): _*)
-
-    var futures: List[ProgressListenableFuture[Any]] = Nil
-    for (future <- requestMap.values) {
-      futures ::= future
-    }
-    val requestFuture: ListenableFuture[java.util.List[Any]] = Futures.allAsList(futures)
+    val requestMap = new ProgressSettableFutureMap[NodeUrn, Any](
+      Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[Any]())): _*)
+    )
 
     requestCache.put(requestId, (FLASH_OPERATION, requestMap), timeout, timeUnit)
     wsn.flashPrograms(requestId, createFlashProgramsConfigurationList(nodeUrns, imageBytes))
 
-    (requestFuture, requestMap)
+    requestMap
   }
 
   private def createFlashProgramsConfigurationList(nodeUrns: List[NodeUrn],
@@ -186,16 +175,20 @@ abstract class Reservation(val wsn: WSN) extends Logging {
           val nodeUrn = status.getNodeUrn
           val value = status.getValue
           val msg = status.getMsg
-          val futureEntry = progressMap.get(nodeUrn)
+          val futureEntry = if (progressMap.containsKey(nodeUrn)) {
+            Some(progressMap.get(nodeUrn))
+          } else {
+            None
+          }
 
           futureEntry match {
             case Some(future) => {
               if (value < 0) {
-                future.setException(new Exception(msg))
+                future.asInstanceOf[ProgressSettableFuture[Any]].setException(new Exception(msg))
               } else if (operation.isComplete(value)) {
-                future.set(Unit)
-              } else if (value >= 1) {
-                future.setProgress(value / 100)
+                future.asInstanceOf[ProgressSettableFuture[Any]].set(Unit)
+              } else if (value >= 0) {
+                future.asInstanceOf[ProgressSettableFuture[Any]].setProgress(value.toFloat / 100)
               }
             }
             case _ => logger.warn(

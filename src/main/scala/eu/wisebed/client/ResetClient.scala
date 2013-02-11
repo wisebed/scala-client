@@ -1,10 +1,10 @@
 package eu.wisebed.client
 
 import scopt.mutable.OptionParser
-import de.uniluebeck.itm.tr.util.ProgressListenableFuture
+import de.uniluebeck.itm.tr.util.ProgressListenableFutureMap
 import java.util.concurrent.TimeUnit
 import com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor
-import com.google.common.util.concurrent.{ListeningExecutorService, ListenableFuture}
+import scala.collection.JavaConversions._
 import eu.wisebed.api.v3.common.NodeUrn
 
 class ResetClientConfig extends Config {
@@ -35,7 +35,7 @@ class ResetClient(args: Array[String]) extends WisebedClient[ResetClientConfig] 
 
   init(args, initialConfig, optionParser)
 
-  def reset(): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressListenableFuture[Any]]) = {
+  def reset(): ProgressListenableFutureMap[NodeUrn, Any] = {
 
     val reservation: Reservation = connectToReservation(config.srkString.get)
     config.nodeUrns match {
@@ -48,38 +48,39 @@ class ResetClient(args: Array[String]) extends WisebedClient[ResetClientConfig] 
 }
 
 object Reset extends App {
+  {
+    val executor = sameThreadExecutor()
+    val client = new ResetClient(args)
+    val futureMap = client.reset()
 
-  val executor = sameThreadExecutor()
-  val client = new ResetClient(args)
+    for (nodeUrn <- futureMap.keySet) {
 
-  val (future, futureMap): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressListenableFuture[Any]]) = client
-    .reset()
+      val future = futureMap.get(nodeUrn)
 
-  for ((nodeUrn, future) <- futureMap) {
-
-    future.addProgressListener(new Runnable() {
-      def run() {
-        println("Resetting progress for \"" + nodeUrn + "\": " + future.getProgress)
-      }
-    }, executor)
-
-    future.addListener(new Runnable() {
-      def run() {
-        try {
-          future.get()
-          println("Resetting complete for \"" + nodeUrn + "\"")
-        } catch {
-          case e: Exception => println("Exception while resetting \"" + nodeUrn + "\": " + e)
+      future.addProgressListener(new Runnable() {
+        def run() {
+          println("Resetting progress for \"" + nodeUrn + "\": " + future.getProgress)
         }
+      }, executor)
+
+      future.addListener(new Runnable() {
+        def run() {
+          try {
+            future.get()
+            println("Resetting complete for \"" + nodeUrn + "\"")
+          } catch {
+            case e: Exception => println("Exception while resetting \"" + nodeUrn + "\": " + e)
+          }
+        }
+      }, executor)
+    }
+
+    futureMap.addListener(new Runnable() {
+      def run() {
+        println("Resetting nodes completed. Shutting down...")
+        client.shutdown()
+        System.exit(0)
       }
     }, executor)
   }
-
-  future.addListener(new Runnable() {
-    def run() {
-      println("Resetting nodes completed. Shutting down...")
-      client.shutdown()
-      System.exit(0)
-    }
-  }, executor)
 }

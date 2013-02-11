@@ -2,8 +2,8 @@ package eu.wisebed.client
 
 import eu.wisebed.api.v3.common.NodeUrn
 import com.google.common.util.concurrent.MoreExecutors._
-import com.google.common.util.concurrent.ListenableFuture
-import de.uniluebeck.itm.tr.util.ProgressListenableFuture
+import de.uniluebeck.itm.tr.util.ProgressListenableFutureMap
+import scala.collection.JavaConversions._
 import scopt.mutable.OptionParser
 import java.util.concurrent.TimeUnit
 import java.io.File
@@ -60,7 +60,7 @@ class FlashClient(args: Array[String]) extends WisebedClient[FlashClientConfig] 
 
   init(args, initialConfig, optionParser)
 
-  def flash(): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressListenableFuture[Any]]) = {
+  def flash(): ProgressListenableFutureMap[NodeUrn, Any] = {
     val imageBytes: Array[Byte] = Files.toByteArray(config.image match {
       case Some(x) => x
     })
@@ -75,39 +75,38 @@ class FlashClient(args: Array[String]) extends WisebedClient[FlashClientConfig] 
 }
 
 object Flash extends App {
+  {
+    val executor = sameThreadExecutor()
+    val client = new FlashClient(args)
+    val futureMap = client.flash()
 
-  val executor = sameThreadExecutor()
+    for (nodeUrn <- futureMap.keySet()) {
 
-  val client = new FlashClient(args)
+      val future = futureMap.get(nodeUrn)
 
-  val (future, futureMap): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressListenableFuture[Any]]) = client
-    .flash()
-
-  for ((nodeUrn, future) <- futureMap) {
-
-    future.addProgressListener(new Runnable() {
-      def run() {
-        println("Resetting progress for \"" + nodeUrn + "\": " + future.getProgress)
-      }
-    }, executor)
-
-    future.addListener(new Runnable() {
-      def run() {
-        try {
-          future.get()
-          println("Resetting complete for \"" + nodeUrn + "\"")
-        } catch {
-          case e: Exception => println("Exception while resetting \"" + nodeUrn + "\": " + e)
+      future.addProgressListener(new Runnable() {
+        def run() {
+          println("Flash progress for \"" + nodeUrn + "\": " + (future.getProgress * 100).toInt)
         }
+      }, executor)
+
+      future.addListener(new Runnable() {
+        def run() {
+          try {
+            println("Flash complete for \"" + nodeUrn + "\"")
+          } catch {
+            case e: Exception => println("Exception while resetting \"" + nodeUrn + "\": " + e)
+          }
+        }
+      }, executor)
+    }
+
+    futureMap.addListener(new Runnable() {
+      def run() {
+        println("Flashing nodes completed. Shutting down...")
+        client.shutdown()
+        System.exit(0)
       }
     }, executor)
   }
-
-  future.addListener(new Runnable() {
-    def run() {
-      println("Resetting nodes completed. Shutting down...")
-      client.shutdown()
-      System.exit(0)
-    }
-  }, executor)
 }
