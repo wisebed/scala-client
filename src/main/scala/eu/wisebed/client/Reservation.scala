@@ -112,20 +112,21 @@ abstract class Reservation(val wsn: WSN) extends Logging {
     }
   }
 
+  def areNodesAlive(nodeUrns: List[NodeUrn],
+                    timeout: Int,
+                    timeUnit: TimeUnit): ProgressListenableFutureMap[NodeUrn, Any] = {
+    assertConnected()
+    val (requestId, requestMap) = prepareRequest(nodeUrns, timeout, timeUnit)
+    wsn.areNodesAlive(requestId, nodeUrns)
+    requestMap
+  }
+
   def reset(nodeUrns: List[NodeUrn],
             timeout: Int,
             timeUnit: TimeUnit): ProgressListenableFutureMap[NodeUrn, Any] = {
-
     assertConnected()
-
-    val requestId = requestIdGenerator.nextLong()
-    val requestMap = new ProgressSettableFutureMap[NodeUrn, Any](
-      Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[Any]())): _*)
-    )
-
-    requestCache.put(requestId, (RESET_OPERATION, requestMap), timeout, timeUnit)
+    val (requestId, requestMap) = prepareRequest(nodeUrns, timeout, timeUnit)
     wsn.resetNodes(requestId, nodeUrns)
-
     requestMap
   }
 
@@ -133,18 +134,23 @@ abstract class Reservation(val wsn: WSN) extends Logging {
             imageBytes: Array[Byte],
             timeout: Long,
             timeUnit: TimeUnit): ProgressListenableFutureMap[NodeUrn, Any] = {
-
     assertConnected()
+    val (requestId, requestMap) = prepareRequest(nodeUrns, timeout, timeUnit)
+    wsn.flashPrograms(requestId, createFlashProgramsConfigurationList(nodeUrns, imageBytes))
+    requestMap
+  }
 
+  private def prepareRequest(nodeUrns: List[NodeUrn],
+                             timeout: Long,
+                             timeUnit: TimeUnit): (Long, ProgressSettableFutureMap[NodeUrn, Any]) = {
     val requestId = requestIdGenerator.nextLong()
     val requestMap = new ProgressSettableFutureMap[NodeUrn, Any](
       Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[Any]())): _*)
     )
 
-    requestCache.put(requestId, (FLASH_OPERATION, requestMap), timeout, timeUnit)
-    wsn.flashPrograms(requestId, createFlashProgramsConfigurationList(nodeUrns, imageBytes))
+    requestCache.put(requestId, (RESET_OPERATION, requestMap), timeout, timeUnit)
 
-    requestMap
+    (requestId, requestMap)
   }
 
   private def createFlashProgramsConfigurationList(nodeUrns: List[NodeUrn],
