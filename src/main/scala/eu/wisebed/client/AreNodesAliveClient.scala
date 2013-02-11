@@ -1,9 +1,7 @@
 package eu.wisebed.client
 
 import scopt.mutable.OptionParser
-import de.uniluebeck.itm.tr.util.ProgressListenableFutureMap
 import java.util.concurrent.TimeUnit
-import com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor
 import scala.collection.JavaConversions._
 import eu.wisebed.api.v3.common.NodeUrn
 
@@ -35,7 +33,7 @@ class AreNodesAliveClient(args: Array[String]) extends WisebedClient[AreNodesAli
 
   init(args, initialConfig, optionParser)
 
-  def areNodesAlive(): ProgressListenableFutureMap[NodeUrn, Any] = {
+  def areNodesAlive(): RequestTracker = {
 
     val reservation: Reservation = connectToReservation(config.srkString.get)
     config.nodeUrns match {
@@ -49,38 +47,43 @@ class AreNodesAliveClient(args: Array[String]) extends WisebedClient[AreNodesAli
 
 object AreNodesAlive extends App {
   {
-    val executor = sameThreadExecutor()
     val client = new AreNodesAliveClient(args)
-    val futureMap = client.areNodesAlive()
+    val requestTracker = client.areNodesAlive()
 
-    for (nodeUrn <- futureMap.keySet) {
+    requestTracker.onNodeProgress((nodeUrn, progressInPercent) => {
+      println("Operation progress for node %s: %d".format(nodeUrn, progressInPercent))
+    })
 
-      val future = futureMap.get(nodeUrn)
+    requestTracker.onNodeFailure((nodeUrn, e) => {
+      println("Operation failed for node %s: %s".format(nodeUrn, e.errorMessage))
+    })
 
-      future.addProgressListener(new Runnable() {
-        def run() {
-          println("Liveness check progress for \"" + nodeUrn + "\": " + future.getProgress)
-        }
-      }, executor)
+    requestTracker.onNodeCompletion(nodeUrn => {
+      println("Operation completion for node %s".format(nodeUrn))
+    })
 
-      future.addListener(new Runnable() {
-        def run() {
+    requestTracker.onCompletion(() => {
+      for ((nodeUrn, future) <- requestTracker.map) {
+        println("%s => %s".format(nodeUrn, {
           try {
             future.get()
-            println("Liveness check complete for \"" + nodeUrn + "\"")
+            true
           } catch {
-            case e: Exception => println("Exception while resetting \"" + nodeUrn + "\": " + e)
+            case e: Exception => e
           }
-        }
-      }, executor)
-    }
-
-    futureMap.addListener(new Runnable() {
-      def run() {
-        println("Liveness check completed. Shutting down...")
-        client.shutdown()
-        System.exit(0)
+        }))
       }
-    }, executor)
+      client.shutdown()
+      System.exit(0)
+    })
+
+    requestTracker.onFailure(e => {
+      println("Operation failed: %s".format(e.errorMessage))
+      System.exit(e.statusCode)
+    })
+
+    requestTracker.onProgress(progressInPercent => {
+      println("Operation progress: %d".format(progressInPercent))
+    })
   }
 }

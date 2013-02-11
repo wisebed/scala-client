@@ -112,32 +112,32 @@ abstract class Reservation(val wsn: WSN) extends Logging {
     }
   }
 
-  def areNodesAlive(nodeUrns: List[NodeUrn],
-                    timeout: Int,
-                    timeUnit: TimeUnit): ProgressListenableFutureMap[NodeUrn, Any] = {
+  def areNodesAlive(nodeUrns: List[NodeUrn], timeout: Int, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
     val (requestId, requestMap) = prepareRequest(nodeUrns, timeout, timeUnit)
     wsn.areNodesAlive(requestId, nodeUrns)
-    requestMap
+    new RequestTracker(requestMap)
   }
 
-  def reset(nodeUrns: List[NodeUrn],
-            timeout: Int,
-            timeUnit: TimeUnit): ProgressListenableFutureMap[NodeUrn, Any] = {
-    assertConnected()
-    val (requestId, requestMap) = prepareRequest(nodeUrns, timeout, timeUnit)
-    wsn.resetNodes(requestId, nodeUrns)
-    requestMap
-  }
-
-  def flash(nodeUrns: List[NodeUrn],
-            imageBytes: Array[Byte],
-            timeout: Long,
-            timeUnit: TimeUnit): ProgressListenableFutureMap[NodeUrn, Any] = {
+  def flash(nodeUrns: List[NodeUrn], imageBytes: Array[Byte], timeout: Long, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
     val (requestId, requestMap) = prepareRequest(nodeUrns, timeout, timeUnit)
     wsn.flashPrograms(requestId, createFlashProgramsConfigurationList(nodeUrns, imageBytes))
-    requestMap
+    new RequestTracker(requestMap)
+  }
+
+  def reset(nodeUrns: List[NodeUrn], timeout: Int, timeUnit: TimeUnit): RequestTracker = {
+    assertConnected()
+    val (requestId, requestMap) = prepareRequest(nodeUrns, timeout, timeUnit)
+    wsn.resetNodes(requestId, nodeUrns)
+    new RequestTracker(requestMap)
+  }
+
+  def send(nodeUrns: List[NodeUrn], bytes: Array[Byte], timeout: Int, timeUnit: TimeUnit): RequestTracker = {
+    assertConnected()
+    val (requestId, requestMap) = prepareRequest(nodeUrns, timeout, timeUnit)
+    wsn.send(requestId, nodeUrns, bytes)
+    new RequestTracker(requestMap)
   }
 
   private def prepareRequest(nodeUrns: List[NodeUrn],
@@ -190,7 +190,8 @@ abstract class Reservation(val wsn: WSN) extends Logging {
           futureEntry match {
             case Some(future) => {
               if (value < 0) {
-                future.asInstanceOf[ProgressSettableFuture[Any]].setException(new Exception(msg))
+                val e = new RequestFailedException(List(nodeUrn), value, msg)
+                future.asInstanceOf[ProgressSettableFuture[Any]].setException(e)
               } else if (operation.isComplete(value)) {
                 future.asInstanceOf[ProgressSettableFuture[Any]].set(Unit)
               } else if (value >= 0) {

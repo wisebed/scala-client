@@ -2,12 +2,12 @@ package eu.wisebed.client
 
 import eu.wisebed.api.v3.common.NodeUrn
 import com.google.common.util.concurrent.MoreExecutors._
-import de.uniluebeck.itm.tr.util.ProgressListenableFutureMap
 import scala.collection.JavaConversions._
 import scopt.mutable.OptionParser
 import java.util.concurrent.TimeUnit
 import java.io.File
 import com.google.common.io.Files
+import com.google.common.base.Joiner
 
 class FlashClientConfig extends Config {
 
@@ -60,9 +60,10 @@ class FlashClient(args: Array[String]) extends WisebedClient[FlashClientConfig] 
 
   init(args, initialConfig, optionParser)
 
-  def flash(): ProgressListenableFutureMap[NodeUrn, Any] = {
+  def flash(): RequestTracker = {
     val imageBytes: Array[Byte] = Files.toByteArray(config.image match {
       case Some(x) => x
+      case _ => throw new RuntimeException("This should not happen")
     })
     val reservation: Reservation = connectToReservation(config.srkString.get)
     config.nodeUrns match {
@@ -76,37 +77,43 @@ class FlashClient(args: Array[String]) extends WisebedClient[FlashClientConfig] 
 
 object Flash extends App {
   {
-    val executor = sameThreadExecutor()
     val client = new FlashClient(args)
-    val futureMap = client.flash()
+    val requestTracker = client.flash()
 
-    for (nodeUrn <- futureMap.keySet()) {
+    requestTracker.onNodeProgress((nodeUrn, progressInPercent) => {
+      println("Operation progress for node %s: %d".format(nodeUrn, progressInPercent))
+    })
 
-      val future = futureMap.get(nodeUrn)
+    requestTracker.onNodeFailure((nodeUrn, e) => {
+      println("Operation failed for node %s: %s".format(nodeUrn, e.errorMessage))
+    })
 
-      future.addProgressListener(new Runnable() {
-        def run() {
-          println("Flash progress for \"" + nodeUrn + "\": " + (future.getProgress * 100).toInt)
-        }
-      }, executor)
+    requestTracker.onNodeCompletion(nodeUrn => {
+      println("Operation completion for node %s".format(nodeUrn))
+    })
 
-      future.addListener(new Runnable() {
-        def run() {
+    requestTracker.onCompletion(() => {
+      for ((nodeUrn, future) <- requestTracker.map) {
+        println("%s => %s".format(nodeUrn, {
           try {
-            println("Flash complete for \"" + nodeUrn + "\"")
+            future.get()
+            true
           } catch {
-            case e: Exception => println("Exception while resetting \"" + nodeUrn + "\": " + e)
+            case e: Exception => e
           }
-        }
-      }, executor)
-    }
-
-    futureMap.addListener(new Runnable() {
-      def run() {
-        println("Flashing nodes completed. Shutting down...")
-        client.shutdown()
-        System.exit(0)
+        }))
       }
-    }, executor)
+      client.shutdown()
+      System.exit(0)
+    })
+
+    requestTracker.onFailure(e => {
+      println("Operation failed: %s".format(e.errorMessage))
+      System.exit(e.statusCode)
+    })
+
+    requestTracker.onProgress(progressInPercent => {
+      println("Operation progress: %d".format(progressInPercent))
+    })
   }
 }
