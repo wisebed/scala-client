@@ -6,7 +6,7 @@ import de.uniluebeck.itm.tr.util.ProgressListenableFuture
 import de.uniluebeck.itm.tr.util.ProgressSettableFuture
 import de.uniluebeck.itm.tr.util.TimedCache
 import eu.wisebed.api.v3.controller.RequestStatus
-import eu.wisebed.api.v3.wsn.WSN
+import eu.wisebed.api.v3.wsn.{FlashProgramsConfiguration, WSN}
 import java.util.concurrent.TimeUnit
 import org.joda.time.DateTime
 import scala.util.Random
@@ -20,8 +20,20 @@ abstract class Reservation(val wsn: WSN) extends Logging {
 
   assertConnected()
 
-  abstract class Operation { def isComplete(value: Int): Boolean }
-  object RESET extends Operation { def isComplete(value: Int) = value >= 1 }
+  abstract class Operation {
+
+    def isComplete(value: Int): Boolean
+  }
+
+  object RESET_OPERATION extends Operation {
+
+    def isComplete(value: Int) = value >= 1
+  }
+
+  object FLASH_OPERATION extends Operation {
+
+    def isComplete(value: Int) = value >= 100
+  }
 
   // TODO model life cycle of experiment: CONNECTED -> RUNNING -> ENDED
 
@@ -30,9 +42,11 @@ abstract class Reservation(val wsn: WSN) extends Logging {
   private val requestCache: TimedCache[Long, (Operation, Map[NodeUrn, ProgressSettableFuture[Any]])] = new TimedCache()
 
   private var nodesAttachedListeners: List[List[NodeUrn] => Unit] = Nil
+
   def onNodesAttached(listener: List[NodeUrn] => Unit) {
     nodesAttachedListeners ::= listener
   }
+
   protected def notifyNodesAttached(nodeUrns: List[NodeUrn]) {
     for (listener <- nodesAttachedListeners) {
       listener(nodeUrns)
@@ -40,20 +54,25 @@ abstract class Reservation(val wsn: WSN) extends Logging {
   }
 
   private var nodesDetachedListeners: List[List[NodeUrn] => Unit] = Nil
+
   protected def notifyNodesDetached(nodeUrns: List[NodeUrn]) {
     for (listener <- nodesDetachedListeners) {
       listener(nodeUrns)
     }
   }
+
   def onNodesDetached(listener: List[NodeUrn] => Unit) {
     nodesDetachedListeners ::= listener
   }
 
-  case class Notification(nodeUrn:Option[NodeUrn], timestamp: DateTime, msg: String)
+  case class Notification(nodeUrn: Option[NodeUrn], timestamp: DateTime, msg: String)
+
   private var notificationListeners: List[Notification => Unit] = Nil
+
   def onNotification(listener: Notification => Unit) {
     notificationListeners ::= listener
   }
+
   protected def notifyNotification(notification: Notification) {
     for (listener <- notificationListeners) {
       listener(notification)
@@ -61,9 +80,11 @@ abstract class Reservation(val wsn: WSN) extends Logging {
   }
 
   private var messageListeners: List[(NodeUrn, DateTime, Array[Byte]) => Unit] = Nil
+
   def onMessage(listener: (NodeUrn, DateTime, Array[Byte]) => Unit) {
     messageListeners ::= listener
   }
+
   protected def notifyMessage(nodeUrn: NodeUrn, timestamp: DateTime, buffer: Array[Byte]) {
     for (listener <- messageListeners) {
       listener(nodeUrn, timestamp, buffer)
@@ -71,9 +92,11 @@ abstract class Reservation(val wsn: WSN) extends Logging {
   }
 
   private var experimentStartedListeners: List[() => Unit] = Nil
+
   def onExperimentStarted(listener: () => Unit) {
     experimentStartedListeners ::= listener
   }
+
   protected def notifyExperimentStarted() {
     for (listener <- experimentStartedListeners) {
       listener()
@@ -81,16 +104,20 @@ abstract class Reservation(val wsn: WSN) extends Logging {
   }
 
   private var experimentEndedListeners: List[() => Unit] = Nil
+
   def onExperimentEnded(listener: () => Unit) {
     experimentEndedListeners ::= listener
   }
+
   protected def notifyExperimentEnded() {
     for (listener <- experimentEndedListeners) {
       listener()
     }
   }
 
-  def reset(nodeUrns: List[NodeUrn], timeout: Int, timeUnit: TimeUnit): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressSettableFuture[Any]]) = {
+  def reset(nodeUrns: List[NodeUrn],
+            timeout: Int,
+            timeUnit: TimeUnit): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressSettableFuture[Any]]) = {
 
     assertConnected()
 
@@ -103,15 +130,47 @@ abstract class Reservation(val wsn: WSN) extends Logging {
     }
     val requestFuture: ListenableFuture[java.util.List[Any]] = Futures.allAsList(futures)
 
-    requestCache.put(requestId, (RESET, requestMap), timeout, timeUnit)
+    requestCache.put(requestId, (RESET_OPERATION, requestMap), timeout, timeUnit)
     wsn.resetNodes(requestId, nodeUrns)
 
     (requestFuture, requestMap)
   }
 
+  def flash(nodeUrns: List[NodeUrn],
+            imageBytes: Array[Byte],
+            timeout: Long,
+            timeUnit: TimeUnit): (ListenableFuture[java.util.List[Any]], Map[NodeUrn, ProgressListenableFuture[Any]]) = {
+
+    assertConnected()
+
+    val requestId = requestIdGenerator.nextLong()
+    val requestMap = Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[Any]())): _*)
+
+    var futures: List[ProgressListenableFuture[Any]] = Nil
+    for (future <- requestMap.values) {
+      futures ::= future
+    }
+    val requestFuture: ListenableFuture[java.util.List[Any]] = Futures.allAsList(futures)
+
+    requestCache.put(requestId, (FLASH_OPERATION, requestMap), timeout, timeUnit)
+    wsn.flashPrograms(requestId, createFlashProgramsConfigurationList(nodeUrns, imageBytes))
+
+    (requestFuture, requestMap)
+  }
+
+  private def createFlashProgramsConfigurationList(nodeUrns: List[NodeUrn],
+                                                   imageBytes: Array[Byte]): List[FlashProgramsConfiguration] = {
+    val config = new FlashProgramsConfiguration()
+    config.getNodeUrns.addAll(nodeUrns)
+    config.setProgram(imageBytes)
+    List(config)
+  }
+
   def reservedNodeUrns(): List[NodeUrn] = {
     assertConnected()
-    WiseMLHelper.getNodeUrns(wsn.getNetwork).toList.map(nodeUrnString => {new NodeUrn(nodeUrnString)})
+    WiseMLHelper.getNodeUrns(wsn.getNetwork).toList.map(nodeUrnString => {
+      new NodeUrn(nodeUrnString)
+    })
   }
 
   def shutdown()
@@ -139,7 +198,8 @@ abstract class Reservation(val wsn: WSN) extends Logging {
                 future.setProgress(value / 100)
               }
             }
-            case _ => logger.warn("Received request status for known requestId (" + requestId + ") but unknown node URN (" + nodeUrn + ")")
+            case _ => logger.warn(
+              "Received request status for known requestId (" + requestId + ") but unknown node URN (" + nodeUrn + ")")
           }
         }
       }
