@@ -1,9 +1,9 @@
 package eu.wisebed.client
 
 import de.uniluebeck.itm.tr.util._
-import eu.wisebed.api.v3.controller.RequestStatus
+import eu.wisebed.api.v3.controller.{Status, RequestStatus}
 import eu.wisebed.api.v3.wsn.{FlashProgramsConfiguration, WSN}
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Executors, ExecutorService, TimeUnit}
 import org.joda.time.DateTime
 import scala.util.Random
 import scala.collection.JavaConversions._
@@ -12,6 +12,7 @@ import eu.wisebed.api.v3.common.NodeUrn
 import util.Logging
 import eu.wisebed.wiseml.WiseMLHelper
 import scala.Some
+import com.google.common.util.concurrent.MoreExecutors
 
 abstract class Reservation(val wsn: WSN) extends Logging {
 
@@ -36,7 +37,8 @@ abstract class Reservation(val wsn: WSN) extends Logging {
 
   private val requestIdGenerator: Random = new Random()
 
-  private val requestCache: TimedCache[Long, (Operation, ProgressSettableFutureMap[NodeUrn, Any])] = new TimedCache()
+  private val requestCache: TimedCache[Long, (Operation, ProgressSettableFutureMap[NodeUrn, Status])] =
+    new TimedCache()
 
   private var nodesAttachedListeners: List[List[NodeUrn] => Unit] = Nil
 
@@ -114,46 +116,46 @@ abstract class Reservation(val wsn: WSN) extends Logging {
 
   def areNodesAlive(nodeUrns: List[NodeUrn], timeout: Int, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
-    val (requestId, requestMap) = prepareRequest(nodeUrns, timeout, timeUnit)
-    wsn.areNodesAlive(requestId, nodeUrns)
-    new RequestTracker(requestMap)
+    executeRequest(nodeUrns, timeout, timeUnit, requestId => wsn.areNodesAlive(requestId, nodeUrns))
   }
 
   def flash(nodeUrns: List[NodeUrn], imageBytes: Array[Byte], timeout: Long, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
-    val (requestId, requestMap) = prepareRequest(nodeUrns, timeout, timeUnit)
-    wsn.flashPrograms(requestId, createFlashProgramsConfigurationList(nodeUrns, imageBytes))
-    new RequestTracker(requestMap)
+    executeRequest(nodeUrns, timeout, timeUnit, requestId => {
+      wsn.flashPrograms(requestId, createFlashProgramsConfigurationList(nodeUrns, imageBytes))
+    })
   }
 
   def reset(nodeUrns: List[NodeUrn], timeout: Int, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
-    val (requestId, requestMap) = prepareRequest(nodeUrns, timeout, timeUnit)
-    wsn.resetNodes(requestId, nodeUrns)
-    new RequestTracker(requestMap)
+    executeRequest(nodeUrns, timeout, timeUnit, requestId => {
+      wsn.resetNodes(requestId, nodeUrns)
+    })
   }
 
   def send(nodeUrns: List[NodeUrn], bytes: Array[Byte], timeout: Int, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
-    val (requestId, requestMap) = prepareRequest(nodeUrns, timeout, timeUnit)
-    wsn.send(requestId, nodeUrns, bytes)
+    executeRequest(nodeUrns, timeout, timeUnit, requestId => wsn.send(requestId, nodeUrns, bytes))
+  }
+
+  protected def executeRequest(nodeUrns: List[NodeUrn],
+                             timeout: Long,
+                             timeUnit: TimeUnit,
+                             runnable: Long => Unit): RequestTracker = {
+    val requestId = requestIdGenerator.nextLong()
+    val requestMap = new ProgressSettableFutureMap[NodeUrn, Status](
+      Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[Status]())): _*)
+    )
+    requestCache.put(requestId, (RESET_OPERATION, requestMap), timeout, timeUnit)
+    executor.execute(new Runnable {
+      def run() {
+        runnable(requestId)
+      }
+    })
     new RequestTracker(requestMap)
   }
 
-  private def prepareRequest(nodeUrns: List[NodeUrn],
-                             timeout: Long,
-                             timeUnit: TimeUnit): (Long, ProgressSettableFutureMap[NodeUrn, Any]) = {
-    val requestId = requestIdGenerator.nextLong()
-    val requestMap = new ProgressSettableFutureMap[NodeUrn, Any](
-      Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[Any]())): _*)
-    )
-
-    requestCache.put(requestId, (RESET_OPERATION, requestMap), timeout, timeUnit)
-
-    (requestId, requestMap)
-  }
-
-  private def createFlashProgramsConfigurationList(nodeUrns: List[NodeUrn],
+  protected def createFlashProgramsConfigurationList(nodeUrns: List[NodeUrn],
                                                    imageBytes: Array[Byte]): List[FlashProgramsConfiguration] = {
     val config = new FlashProgramsConfiguration()
     config.getNodeUrns.addAll(nodeUrns)
@@ -168,7 +170,14 @@ abstract class Reservation(val wsn: WSN) extends Logging {
     })
   }
 
-  def shutdown()
+  protected var _executor: Option[ExecutorService] = None
+
+  def shutdown() {
+    _executor match {
+      case Some(x) => ExecutorUtils.shutdown(x, 1, TimeUnit.SECONDS)
+      case None => return
+    }
+  }
 
   protected def assertConnected()
 
@@ -191,11 +200,11 @@ abstract class Reservation(val wsn: WSN) extends Logging {
             case Some(future) => {
               if (value < 0) {
                 val e = new RequestFailedException(List(nodeUrn), value, msg)
-                future.asInstanceOf[ProgressSettableFuture[Any]].setException(e)
+                future.asInstanceOf[ProgressSettableFuture[Status]].setException(e)
               } else if (operation.isComplete(value)) {
-                future.asInstanceOf[ProgressSettableFuture[Any]].set(Unit)
+                future.asInstanceOf[ProgressSettableFuture[Status]].set(status)
               } else if (value >= 0) {
-                future.asInstanceOf[ProgressSettableFuture[Any]].setProgress(value.toFloat / 100)
+                future.asInstanceOf[ProgressSettableFuture[Status]].setProgress(value.toFloat / 100)
               }
             }
             case _ => logger.warn(
@@ -204,6 +213,16 @@ abstract class Reservation(val wsn: WSN) extends Logging {
         }
       }
       case _ => logger.trace("Ignoring requestStatus received for unknown requestId " + requestId)
+    }
+  }
+
+  protected def executor: ExecutorService = {
+    _executor match {
+      case None => {
+        _executor = Some(Executors.newCachedThreadPool())
+        _executor.get
+      }
+      case Some(x) => x
     }
   }
 }

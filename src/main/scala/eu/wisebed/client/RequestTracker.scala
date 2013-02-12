@@ -4,8 +4,9 @@ import eu.wisebed.api.v3.common.NodeUrn
 import de.uniluebeck.itm.tr.util.ProgressListenableFutureMap
 import com.google.common.util.concurrent.MoreExecutors
 import scala.collection.JavaConversions._
+import eu.wisebed.api.v3.controller.Status
 
-class RequestTracker(private val futureMap: ProgressListenableFutureMap[NodeUrn, Any]) {
+class RequestTracker(val map: ProgressListenableFutureMap[NodeUrn, Status]) {
 
   private var nodeProgressListeners = List[(NodeUrn, Int) => Unit]()
 
@@ -21,9 +22,9 @@ class RequestTracker(private val futureMap: ProgressListenableFutureMap[NodeUrn,
 
   private val executor = MoreExecutors.sameThreadExecutor()
 
-  for (nodeUrn <- futureMap.keySet()) {
+  for (nodeUrn <- map.keySet()) {
 
-    val future = futureMap.get(nodeUrn)
+    val future = map.get(nodeUrn)
 
     future.addProgressListener(new Runnable() {
       def run() {
@@ -41,24 +42,24 @@ class RequestTracker(private val futureMap: ProgressListenableFutureMap[NodeUrn,
             notifyNodeFailure(nodeUrn, e)
           }
           case e: Exception => {
-            notifyNodeFailure(nodeUrn, new RequestFailedException(futureMap.keySet().toList, e))
+            notifyNodeFailure(nodeUrn, new RequestFailedException(map.keySet().toList, e))
           }
         }
       }
     }, executor)
   }
 
-  futureMap.addListener(new Runnable() {
+  map.addListener(new Runnable() {
     def run() {
       try {
-        futureMap.get() // check if exception occurred
+        map.get() // check if exception occurred
         notifyCompletion()
       } catch {
         case e: RequestFailedException => {
           notifyFailure(e)
         }
         case e: Exception => {
-          notifyFailure(new RequestFailedException(futureMap.keySet().toList, e))
+          notifyFailure(new RequestFailedException(map.keySet().toList, e))
         }
       }
     }
@@ -111,6 +112,4 @@ class RequestTracker(private val futureMap: ProgressListenableFutureMap[NodeUrn,
   def notifyFailure(e: RequestFailedException) {
     failureListeners.foreach(listener => listener(e))
   }
-
-  def map = futureMap
 }

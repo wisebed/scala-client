@@ -4,6 +4,7 @@ import scopt.mutable.OptionParser
 import java.util.concurrent.TimeUnit
 import scala.collection.JavaConversions._
 import eu.wisebed.api.v3.common.NodeUrn
+import scala.Int
 
 class AreNodesAliveClientConfig extends Config {
 
@@ -47,43 +48,41 @@ class AreNodesAliveClient(args: Array[String]) extends WisebedClient[AreNodesAli
 
 object AreNodesAlive extends App {
   {
-    val client = new AreNodesAliveClient(args)
-    val requestTracker = client.areNodesAlive()
+    val tracker = new AreNodesAliveClient(args).areNodesAlive()
 
-    requestTracker.onNodeProgress((nodeUrn, progressInPercent) => {
+    tracker.onNodeProgress((nodeUrn, progressInPercent) => {
       println("Operation progress for node %s: %d".format(nodeUrn, progressInPercent))
     })
 
-    requestTracker.onNodeFailure((nodeUrn, e) => {
+    tracker.onNodeFailure((nodeUrn, e) => {
       println("Operation failed for node %s: %s".format(nodeUrn, e.errorMessage))
     })
 
-    requestTracker.onNodeCompletion(nodeUrn => {
+    tracker.onNodeCompletion(nodeUrn => {
       println("Operation completion for node %s".format(nodeUrn))
     })
 
-    requestTracker.onCompletion(() => {
-      for ((nodeUrn, future) <- requestTracker.map) {
+    tracker.onProgress(progressInPercent => {
+      println("Operation progress: %d".format(progressInPercent))
+    })
+
+    tracker.onCompletion(() => {
+      for ((nodeUrn, future) <- tracker.map) {
         println("%s => %s".format(nodeUrn, {
-          try {
-            future.get()
-            true
-          } catch {
-            case e: Exception => e
+          val value: Int = future.get().getValue
+          value match {
+            case 1 => "true"
+            case _ => "false (%s)".format(future.get().getMsg)
           }
         }))
       }
-      client.shutdown()
+      new AreNodesAliveClient(args).shutdown()
       System.exit(0)
     })
 
-    requestTracker.onFailure(e => {
+    tracker.onFailure(e => {
       println("Operation failed: %s".format(e.errorMessage))
       System.exit(e.statusCode)
-    })
-
-    requestTracker.onProgress(progressInPercent => {
-      println("Operation progress: %d".format(progressInPercent))
     })
   }
 }

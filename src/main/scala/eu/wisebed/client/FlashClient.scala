@@ -1,13 +1,11 @@
 package eu.wisebed.client
 
 import eu.wisebed.api.v3.common.NodeUrn
-import com.google.common.util.concurrent.MoreExecutors._
 import scala.collection.JavaConversions._
 import scopt.mutable.OptionParser
 import java.util.concurrent.TimeUnit
 import java.io.File
 import com.google.common.io.Files
-import com.google.common.base.Joiner
 
 class FlashClientConfig extends Config {
 
@@ -77,23 +75,26 @@ class FlashClient(args: Array[String]) extends WisebedClient[FlashClientConfig] 
 
 object Flash extends App {
   {
-    val client = new FlashClient(args)
-    val requestTracker = client.flash()
+    val tracker = new FlashClient(args).flash()
 
-    requestTracker.onNodeProgress((nodeUrn, progressInPercent) => {
+    tracker.onNodeProgress((nodeUrn, progressInPercent) => {
       println("Operation progress for node %s: %d".format(nodeUrn, progressInPercent))
     })
 
-    requestTracker.onNodeFailure((nodeUrn, e) => {
+    tracker.onNodeFailure((nodeUrn, e) => {
       println("Operation failed for node %s: %s".format(nodeUrn, e.errorMessage))
     })
 
-    requestTracker.onNodeCompletion(nodeUrn => {
+    tracker.onNodeCompletion(nodeUrn => {
       println("Operation completion for node %s".format(nodeUrn))
     })
 
-    requestTracker.onCompletion(() => {
-      for ((nodeUrn, future) <- requestTracker.map) {
+    tracker.onProgress(progressInPercent => {
+      println("Operation progress: %d".format(progressInPercent))
+    })
+
+    tracker.onCompletion(() => {
+      for ((nodeUrn, future) <- tracker.map) {
         println("%s => %s".format(nodeUrn, {
           try {
             future.get()
@@ -103,17 +104,13 @@ object Flash extends App {
           }
         }))
       }
-      client.shutdown()
+      new FlashClient(args).shutdown()
       System.exit(0)
     })
 
-    requestTracker.onFailure(e => {
+    tracker.onFailure(e => {
       println("Operation failed: %s".format(e.errorMessage))
       System.exit(e.statusCode)
-    })
-
-    requestTracker.onProgress(progressInPercent => {
-      println("Operation progress: %d".format(progressInPercent))
     })
   }
 }

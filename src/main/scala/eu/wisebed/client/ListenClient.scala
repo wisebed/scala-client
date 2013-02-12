@@ -52,9 +52,9 @@ class ListenClient(args: Array[String]) extends WisebedClient[ListenClientConfig
     reservation.onMessage((nodeUrn, timestamp, buffer) => {
       print(timestamp)
       print(" | ")
-      print(nodeUrn)
-      print(" | ")
       print("UPSTREAM_MESSAGE_EVENT")
+      print(" | ")
+      print(nodeUrn)
       print(" | ")
       print(StringUtils.replaceNonPrintableAsciiCharacters(buffer))
       println()
@@ -63,12 +63,12 @@ class ListenClient(args: Array[String]) extends WisebedClient[ListenClientConfig
     reservation.onNotification(notification => {
       print(notification.timestamp)
       print(" | ")
+      print("NOTIFICATION_EVENT")
+      print(" | ")
       print(notification.nodeUrn match {
         case Some(urn) => urn
         case None => ""
       })
-      print(" | ")
-      print("NOTIFICATION_EVENT")
       print(" | ")
       print(notification.msg)
     })
@@ -77,9 +77,9 @@ class ListenClient(args: Array[String]) extends WisebedClient[ListenClientConfig
       nodeUrns.foreach(nodeUrn => {
         print(new DateTime())
         print(" | ")
-        print(nodeUrn)
-        print(" | ")
         print("NODE_ATTACHED_EVENT")
+        print(" | ")
+        print(nodeUrn)
         println(" |")
       })
     })
@@ -88,9 +88,9 @@ class ListenClient(args: Array[String]) extends WisebedClient[ListenClientConfig
       nodeUrns.foreach(nodeUrn => {
         print(new DateTime())
         print(" | ")
-        print(nodeUrn)
-        print(" | ")
         print("NODE_DETACHED_EVENT")
+        print(" | ")
+        print(nodeUrn)
         println(" |")
       })
     })
@@ -98,9 +98,9 @@ class ListenClient(args: Array[String]) extends WisebedClient[ListenClientConfig
     reservation.onExperimentEnded(() => {
       print(new DateTime())
       print(" | ")
-      print("")
-      print(" | ")
       print("RESERVATION_ENDED_EVENT")
+      print(" | ")
+      print("")
       println(" |")
       System.exit(0)
     })
@@ -108,9 +108,9 @@ class ListenClient(args: Array[String]) extends WisebedClient[ListenClientConfig
     reservation.onExperimentStarted(() => {
       print(new DateTime())
       print(" | ")
-      print("")
-      print(" | ")
       print("RESERVATION_STARTED_EVENT")
+      print(" | ")
+      print("")
       println(" |")
     })
   }

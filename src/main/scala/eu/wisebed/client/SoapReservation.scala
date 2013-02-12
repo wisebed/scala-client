@@ -81,7 +81,8 @@ class SoapReservation(val wsn1: WSN,
     }
   }
 
-  def shutdown() {
+  override def shutdown() {
+    super.shutdown()
     _endpoint match {
       case Some(e) => {
         try {

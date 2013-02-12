@@ -1,9 +1,7 @@
 package eu.wisebed.client
 
 import scopt.mutable.OptionParser
-import de.uniluebeck.itm.tr.util.ProgressListenableFutureMap
 import java.util.concurrent.TimeUnit
-import com.google.common.util.concurrent.MoreExecutors.sameThreadExecutor
 import scala.collection.JavaConversions._
 import eu.wisebed.api.v3.common.NodeUrn
 
@@ -49,23 +47,22 @@ class ResetClient(args: Array[String]) extends WisebedClient[ResetClientConfig] 
 
 object Reset extends App {
   {
-    val client = new ResetClient(args)
-    val requestTracker = client.reset()
+    val tracker = new ResetClient(args).reset()
 
-    requestTracker.onNodeProgress((nodeUrn, progressInPercent) => {
+    tracker.onNodeProgress((nodeUrn, progressInPercent) => {
       println("Operation progress for node %s: %d".format(nodeUrn, progressInPercent))
     })
 
-    requestTracker.onNodeFailure((nodeUrn, e) => {
+    tracker.onNodeFailure((nodeUrn, e) => {
       println("Operation failed for node %s: %s".format(nodeUrn, e.errorMessage))
     })
 
-    requestTracker.onNodeCompletion(nodeUrn => {
+    tracker.onNodeCompletion(nodeUrn => {
       println("Operation completion for node %s".format(nodeUrn))
     })
 
-    requestTracker.onCompletion(() => {
-      for ((nodeUrn, future) <- requestTracker.map) {
+    tracker.onCompletion(() => {
+      for ((nodeUrn, future) <- tracker.map) {
         println("%s => %s".format(nodeUrn, {
           try {
             future.get()
@@ -75,16 +72,16 @@ object Reset extends App {
           }
         }))
       }
-      client.shutdown()
+      new ResetClient(args).shutdown()
       System.exit(0)
     })
 
-    requestTracker.onFailure(e => {
+    tracker.onFailure(e => {
       println("Operation failed: %s".format(e.errorMessage))
       System.exit(e.statusCode)
     })
 
-    requestTracker.onProgress(progressInPercent => {
+    tracker.onProgress(progressInPercent => {
       println("Operation progress: %d".format(progressInPercent))
     })
   }
