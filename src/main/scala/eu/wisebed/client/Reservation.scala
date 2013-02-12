@@ -3,7 +3,7 @@ package eu.wisebed.client
 import de.uniluebeck.itm.tr.util._
 import eu.wisebed.api.v3.controller.{Status, RequestStatus}
 import eu.wisebed.api.v3.wsn.{FlashProgramsConfiguration, WSN}
-import java.util.concurrent.{Executors, ExecutorService, TimeUnit}
+import java.util.concurrent.TimeUnit
 import org.joda.time.DateTime
 import scala.util.Random
 import scala.collection.JavaConversions._
@@ -12,9 +12,8 @@ import eu.wisebed.api.v3.common.NodeUrn
 import util.Logging
 import eu.wisebed.wiseml.WiseMLHelper
 import scala.Some
-import com.google.common.util.concurrent.MoreExecutors
 
-abstract class Reservation(val wsn: WSN) extends Logging {
+abstract class Reservation(val wsn: WSN) extends Logging with HasExecutor {
 
   assertConnected()
 
@@ -170,13 +169,8 @@ abstract class Reservation(val wsn: WSN) extends Logging {
     })
   }
 
-  protected var _executor: Option[ExecutorService] = None
-
   def shutdown() {
-    _executor match {
-      case Some(x) => ExecutorUtils.shutdown(x, 1, TimeUnit.SECONDS)
-      case None => return
-    }
+    shutdownExecutor()
   }
 
   protected def assertConnected()
@@ -213,16 +207,6 @@ abstract class Reservation(val wsn: WSN) extends Logging {
         }
       }
       case _ => logger.trace("Ignoring requestStatus received for unknown requestId " + requestId)
-    }
-  }
-
-  protected def executor: ExecutorService = {
-    _executor match {
-      case None => {
-        _executor = Some(Executors.newCachedThreadPool())
-        _executor.get
-      }
-      case Some(x) => x
     }
   }
 }

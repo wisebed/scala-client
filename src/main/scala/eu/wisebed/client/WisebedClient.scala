@@ -9,6 +9,7 @@ import eu.wisebed.api.v3.sm.SessionManagement
 import javax.xml.ws.Holder
 import eu.wisebed.api.v3.common.{SecretReservationKey, SecretAuthenticationKey, KeyValuePair}
 import scala.collection
+import collection.immutable.HashSet
 import collection.mutable
 import scala.collection.JavaConversions._
 import scopt.mutable.OptionParser
@@ -16,8 +17,12 @@ import eu.wisebed.api.v3.wsn.WSN
 import eu.wisebed.api.v3.common.NodeUrnPrefix
 import eu.wisebed.api.v3.common.NodeUrn
 import util.Logging
+import scala.util.Random
+import eu.wisebed.wiseml.WiseMLHelper
 
-abstract class WisebedClient[ConfigClass <: Config] extends Logging {
+abstract class WisebedClient[ConfigClass <: Config] extends Logging with HasExecutor {
+
+  protected lazy val RANDOM = new Random()
 
   protected implicit def stringToNodeUrn(s: String): NodeUrn = new NodeUrn(s)
 
@@ -94,6 +99,10 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
     case None => throwIllegalStateException
   }
 
+  def testbedNodes: List[NodeUrn] = {
+    WiseMLHelper.getNodeUrns(sm.getNetwork).map(nodeUrnString => new NodeUrn(nodeUrnString)).toList
+  }
+
   private def throwIllegalStateException =
     throw new IllegalStateException("init() must be called before accessing config")
 
@@ -140,6 +149,10 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
     })
   }
 
+  def areNodesConnected(nodeUrns: List[NodeUrn]): Map[NodeUrn, Boolean] = {
+    sm.areNodesConnected(nodeUrns).map(status => (status.getNodeUrn, status.isConnected)).toMap
+  }
+
   def connectToReservation(secretReservationKeyString: String): Reservation = {
     // TODO handle connections to multiple reservations
 
@@ -159,6 +172,7 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging {
   }
 
   def shutdown() {
+    shutdownExecutor()
     _reservation match {
       case Some(reservation) => {
         reservation.shutdown()
