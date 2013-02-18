@@ -39,27 +39,27 @@ abstract class Reservation(val wsn: WSN) extends Logging with HasExecutor {
   private val requestCache: TimedCache[Long, (Operation, ProgressSettableFutureMap[NodeUrn, Status])] =
     new TimedCache()
 
-  private var nodesAttachedListeners: List[List[NodeUrn] => Unit] = Nil
+  private var nodesAttachedListeners: List[(DateTime, List[NodeUrn]) => Unit] = Nil
 
-  def onNodesAttached(listener: List[NodeUrn] => Unit) {
+  def onNodesAttached(listener: (DateTime, List[NodeUrn]) => Unit) {
     nodesAttachedListeners ::= listener
   }
 
-  protected def notifyNodesAttached(nodeUrns: List[NodeUrn]) {
+  protected def notifyNodesAttached(timestamp: DateTime, nodeUrns: List[NodeUrn]) {
     for (listener <- nodesAttachedListeners) {
-      listener(nodeUrns)
+      listener(timestamp, nodeUrns)
     }
   }
 
-  private var nodesDetachedListeners: List[List[NodeUrn] => Unit] = Nil
+  private var nodesDetachedListeners: List[(DateTime, List[NodeUrn]) => Unit] = Nil
 
-  protected def notifyNodesDetached(nodeUrns: List[NodeUrn]) {
+  protected def notifyNodesDetached(timestamp: DateTime, nodeUrns: List[NodeUrn]) {
     for (listener <- nodesDetachedListeners) {
-      listener(nodeUrns)
+      listener(timestamp, nodeUrns)
     }
   }
 
-  def onNodesDetached(listener: List[NodeUrn] => Unit) {
+  def onNodesDetached(listener: (DateTime, List[NodeUrn]) => Unit) {
     nodesDetachedListeners ::= listener
   }
 

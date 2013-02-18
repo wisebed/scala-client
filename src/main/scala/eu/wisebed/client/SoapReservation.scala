@@ -23,12 +23,12 @@ class SoapReservation(val wsn1: WSN,
     targetNamespace = "http://wisebed.eu/api/v3/controller")
   private class SoapReservationController extends Controller {
 
-    override def nodesAttached(nodeUrns: java.util.List[NodeUrn]) {
-      notifyNodesAttached(List(nodeUrns: _*))
+    override def nodesAttached(timestamp: DateTime, nodeUrns: java.util.List[NodeUrn]) {
+      notifyNodesAttached(timestamp, List(nodeUrns: _*))
     }
 
-    override def nodesDetached(nodeUrns: java.util.List[NodeUrn]) {
-      notifyNodesDetached(List(nodeUrns: _*))
+    override def nodesDetached(timestamp: DateTime, nodeUrns: java.util.List[NodeUrn]) {
+      notifyNodesDetached(timestamp, List(nodeUrns: _*))
     }
 
     override def receive(messageList: java.util.List[Message]) {

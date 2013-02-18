@@ -73,9 +73,9 @@ class ListenClient(args: Array[String]) extends WisebedClient[ListenClientConfig
       print(notification.msg)
     })
 
-    reservation.onNodesAttached(nodeUrns => {
+    reservation.onNodesAttached((timestamp, nodeUrns) => {
       nodeUrns.foreach(nodeUrn => {
-        print(new DateTime())
+        print(timestamp)
         print(" | ")
         print("NODE_ATTACHED_EVENT")
         print(" | ")
@@ -84,9 +84,9 @@ class ListenClient(args: Array[String]) extends WisebedClient[ListenClientConfig
       })
     })
 
-    reservation.onNodesDetached(nodeUrns => {
+    reservation.onNodesDetached((timestamp, nodeUrns) => {
       nodeUrns.foreach(nodeUrn => {
-        print(new DateTime())
+        print(timestamp)
         print(" | ")
         print("NODE_DETACHED_EVENT")
         print(" | ")
