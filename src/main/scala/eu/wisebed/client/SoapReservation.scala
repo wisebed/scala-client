@@ -23,15 +23,15 @@ class SoapReservation(val wsn1: WSN,
     targetNamespace = "http://wisebed.eu/api/v3/controller")
   private class SoapReservationController extends Controller {
 
-    def nodesAttached(nodeUrns: java.util.List[NodeUrn]) {
-      notifyNodesAttached(List(nodeUrns:_*))
+    override def nodesAttached(nodeUrns: java.util.List[NodeUrn]) {
+      notifyNodesAttached(List(nodeUrns: _*))
     }
 
-    def nodesDetached(nodeUrns: java.util.List[NodeUrn]) {
-      notifyNodesDetached(List(nodeUrns:_*))
+    override def nodesDetached(nodeUrns: java.util.List[NodeUrn]) {
+      notifyNodesDetached(List(nodeUrns: _*))
     }
 
-    def receive(messageList: java.util.List[Message]) {
+    override def receive(messageList: java.util.List[Message]) {
       logger.trace("SoapReservationController.receive(" + messageList + ")")
       for (message <- messageList) {
         val nodeUrn = message.getSourceNodeUrn
@@ -41,14 +41,14 @@ class SoapReservation(val wsn1: WSN,
       }
     }
 
-    def receiveStatus(requestStatusList: java.util.List[RequestStatus]) {
+    override def receiveStatus(requestStatusList: java.util.List[RequestStatus]) {
       logger.trace("SoapReservationController.receiveStatus(" + requestStatusList + ")")
       for (requestStatus <- requestStatusList) {
         progressRequestStatusReceived(requestStatus)
       }
     }
 
-    def receiveNotification(notificationList: java.util.List[eu.wisebed.api.v3.controller.Notification]) {
+    override def receiveNotification(notificationList: java.util.List[eu.wisebed.api.v3.controller.Notification]) {
       logger.info("SoapReservationController.receiveNotification(" + notificationList + ")")
       for (notification <- notificationList) {
         val nodeUrn: Option[NodeUrn] = notification.getNodeUrn match {
@@ -59,14 +59,14 @@ class SoapReservation(val wsn1: WSN,
       }
     }
 
-    def reservationStarted() {
-      logger.trace("SoapReservationController.experimentStarted()")
-      notifyExperimentStarted()
+    override def reservationStarted(timestamp: DateTime) {
+      logger.trace("SoapReservationController.experimentStarted(" + timestamp + ")")
+      notifyExperimentStarted(timestamp)
     }
 
-    def reservationEnded() {
-      logger.trace("SoapReservationController.experimentEnded()")
-      notifyExperimentEnded()
+    override def reservationEnded(timestamp: DateTime) {
+      logger.trace("SoapReservationController.experimentEnded(" + timestamp + ")")
+      notifyExperimentEnded(timestamp)
     }
   }
 
@@ -88,7 +88,7 @@ class SoapReservation(val wsn1: WSN,
         try {
           wsn.removeController(controllerEndpointUrl.toString)
         } catch {
-          case e:Exception => // ignore
+          case e: Exception => // ignore
         }
         e.stop()
         _endpoint = None

@@ -89,27 +89,27 @@ abstract class Reservation(val wsn: WSN) extends Logging with HasExecutor {
     }
   }
 
-  private var experimentStartedListeners: List[() => Unit] = Nil
+  private var experimentStartedListeners: List[DateTime => Unit] = Nil
 
-  def onExperimentStarted(listener: () => Unit) {
+  def onExperimentStarted(listener: DateTime => Unit) {
     experimentStartedListeners ::= listener
   }
 
-  protected def notifyExperimentStarted() {
+  protected def notifyExperimentStarted(timestamp: DateTime) {
     for (listener <- experimentStartedListeners) {
-      listener()
+      listener(timestamp)
     }
   }
 
-  private var experimentEndedListeners: List[() => Unit] = Nil
+  private var experimentEndedListeners: List[DateTime => Unit] = Nil
 
-  def onExperimentEnded(listener: () => Unit) {
+  def onExperimentEnded(listener: DateTime => Unit) {
     experimentEndedListeners ::= listener
   }
 
-  protected def notifyExperimentEnded() {
+  protected def notifyExperimentEnded(timestamp: DateTime) {
     for (listener <- experimentEndedListeners) {
-      listener()
+      listener(timestamp)
     }
   }
 

@@ -95,8 +95,8 @@ class ListenClient(args: Array[String]) extends WisebedClient[ListenClientConfig
       })
     })
 
-    reservation.onExperimentEnded(() => {
-      print(new DateTime())
+    reservation.onExperimentEnded(timestamp => {
+      print(timestamp)
       print(" | ")
       print("RESERVATION_ENDED_EVENT")
       print(" | ")
@@ -105,8 +105,8 @@ class ListenClient(args: Array[String]) extends WisebedClient[ListenClientConfig
       System.exit(0)
     })
 
-    reservation.onExperimentStarted(() => {
-      print(new DateTime())
+    reservation.onExperimentStarted(timestamp => {
+      print(timestamp)
       print(" | ")
       print("RESERVATION_STARTED_EVENT")
       print(" | ")
