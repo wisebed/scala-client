@@ -115,26 +115,26 @@ abstract class Reservation(val wsn: WSN) extends Logging with HasExecutor {
 
   def areNodesAlive(nodeUrns: List[NodeUrn], timeout: Int, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
-    executeRequest(nodeUrns, timeout, timeUnit, requestId => wsn.areNodesAlive(requestId, nodeUrns))
+    executeRequest(nodeUrns, timeout, timeUnit, requestId => wsn.areNodesAlive(requestId, nodeUrns, null))
   }
 
   def flash(nodeUrns: List[NodeUrn], imageBytes: Array[Byte], timeout: Long, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
     executeRequest(nodeUrns, timeout, timeUnit, requestId => {
-      wsn.flashPrograms(requestId, createFlashProgramsConfigurationList(nodeUrns, imageBytes))
+      wsn.flashPrograms(requestId, createFlashProgramsConfigurationList(nodeUrns, imageBytes), null)
     })
   }
 
   def reset(nodeUrns: List[NodeUrn], timeout: Int, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
     executeRequest(nodeUrns, timeout, timeUnit, requestId => {
-      wsn.resetNodes(requestId, nodeUrns)
+      wsn.resetNodes(requestId, nodeUrns, null)
     })
   }
 
   def send(nodeUrns: List[NodeUrn], bytes: Array[Byte], timeout: Int, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
-    executeRequest(nodeUrns, timeout, timeUnit, requestId => wsn.send(requestId, nodeUrns, bytes))
+    executeRequest(nodeUrns, timeout, timeUnit, requestId => wsn.send(requestId, nodeUrns, bytes, null))
   }
 
   protected def executeRequest(nodeUrns: List[NodeUrn],

@@ -9,7 +9,6 @@ import eu.wisebed.api.v3.sm.SessionManagement
 import javax.xml.ws.Holder
 import eu.wisebed.api.v3.common.{SecretReservationKey, SecretAuthenticationKey, KeyValuePair}
 import scala.collection
-import collection.immutable.HashSet
 import collection.mutable
 import scala.collection.JavaConversions._
 import scopt.mutable.OptionParser
