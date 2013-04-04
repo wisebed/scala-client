@@ -76,7 +76,7 @@ class SoapReservation(val wsn1: WSN,
       case None => {
         val endpoint: Endpoint = Endpoint.publish(controllerEndpointUrl.toString, new SoapReservationController())
         _endpoint = Some(endpoint)
-        wsn.addController(controllerEndpointUrl.toString, null)
+        wsn.addController(controllerEndpointUrl.toString)
       }
     }
   }
@@ -86,7 +86,7 @@ class SoapReservation(val wsn1: WSN,
     _endpoint match {
       case Some(e) => {
         try {
-          wsn.removeController(controllerEndpointUrl.toString, null)
+          wsn.removeController(controllerEndpointUrl.toString)
         } catch {
           case e: Exception => // ignore
         }
