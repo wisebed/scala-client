@@ -15,10 +15,10 @@ object Reserve extends App {
 
   try {
 
-    val srks = new ReservationClient(args).reserve()
+    val srks : List[SecretReservationKey] = new ReservationClient(args).reserve()
     val pairs = srks.map(srk => srk.getUrnPrefix + "," + srk.getKey)
 
-    println(pairs.reduceLeft(_ + "," + _))
+    println(pairs.reduceLeft(_ + ";" + _))
 
     System.exit(0)
 

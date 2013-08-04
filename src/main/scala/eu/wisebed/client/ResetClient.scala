@@ -36,12 +36,15 @@ class ResetClient(args: Array[String]) extends WisebedClient[ResetClientConfig] 
   def reset(): RequestTracker = {
 
     val reservation: Reservation = connectToReservation(config.srkString.get)
-    config.nodeUrns match {
+    val nodeUrns: List[NodeUrn] = config.nodeUrns match {
       case None =>
-        reservation.reset(reservation.reservedNodeUrns(), 10, TimeUnit.SECONDS)
+        logger.trace("Fetching reserved nodes from RS...")
+        reservation.reservedNodeUrns()
       case Some(x) =>
-        reservation.reset(x, 10, TimeUnit.SECONDS)
+        x
     }
+    logger.info("Resetting nodes {}", nodeUrns)
+    reservation.reset(nodeUrns, 30, TimeUnit.SECONDS)
   }
 }
 

@@ -5,10 +5,11 @@ import java.net.{URI, URL}
 import java.util.Properties
 import collection.mutable
 import eu.wisebed.api.v3.common.NodeUrnPrefix
+import eu.wisebed.client.util.Logging
 
 class Credentials(val urnPrefix: NodeUrnPrefix, val username: String, val password: String)
 
-class Config {
+class Config extends Logging {
 
   var controllerEndpointUrl: Option[URL] = None
 
@@ -35,6 +36,8 @@ class Config {
     } else if (!configFile.canRead) {
       throw new IllegalArgumentException("Configuration file " + configFile.getAbsolutePath + " can't be read!!")
     }
+
+    logger.info("Reading in configuration file {}", configFile.getAbsolutePath)
 
     val properties = new Properties()
     properties.load(new FileReader(configFile))

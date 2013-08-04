@@ -1,7 +1,7 @@
 package eu.wisebed.client
 
 import eu.wisebed.api.v3.rs.RS
-import eu.wisebed.api.v3.snaa.{SNAA, AuthenticationTriple}
+import eu.wisebed.api.v3.snaa.{Authenticate, SNAA, AuthenticationTriple}
 import org.apache.log4j.{PatternLayout, ConsoleAppender, Level}
 import org.joda.time.{Duration, DateTime}
 import eu.wisebed.api.v3.WisebedServiceHelper
@@ -9,7 +9,6 @@ import eu.wisebed.api.v3.sm.SessionManagement
 import javax.xml.ws.Holder
 import eu.wisebed.api.v3.common.{SecretReservationKey, SecretAuthenticationKey, KeyValuePair}
 import scala.collection
-import collection.immutable.HashSet
 import collection.mutable
 import scala.collection.JavaConversions._
 import scopt.mutable.OptionParser
@@ -127,8 +126,7 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging with HasExec
   }
 
   def authenticate(): List[SecretAuthenticationKey] = {
-    val authenticationTripeList = buildAuthenticationTripleList()
-    List((snaa.authenticate(authenticationTripeList)): _*)
+    List(snaa.authenticate(buildAuthenticationArg()).getSecretAuthenticationKey: _*)
   }
 
   def makeReservation(secretAuthenticationKeys: List[SecretAuthenticationKey],
@@ -140,7 +138,7 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging with HasExec
     val from = DateTime.now.plus(offset)
     val to = from.plus(duration)
 
-    List(rs.makeReservation(secretAuthenticationKeys, nodeUrnList, from, to): _*)
+    List(rs.makeReservation(secretAuthenticationKeys, nodeUrnList, from, to, "", null): _*)
   }
 
   def reservation: Reservation = {
@@ -213,8 +211,8 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging with HasExec
     }
   }
 
-  private def buildAuthenticationTripleList(): List[AuthenticationTriple] = {
-    config.credentials.map(
+  private def buildAuthenticationArg(): Authenticate = {
+    val authenticationTripleList: List[AuthenticationTriple] = config.credentials.map(
       credential => {
         val triple = new AuthenticationTriple()
         triple.setUrnPrefix(credential.urnPrefix)
@@ -222,6 +220,9 @@ abstract class WisebedClient[ConfigClass <: Config] extends Logging with HasExec
         triple.setPassword(credential.password)
         triple
       })
+    val authenticateArg = new Authenticate()
+    authenticateArg.getAuthenticationData.addAll(authenticationTripleList)
+    authenticateArg
   }
 
   /**
