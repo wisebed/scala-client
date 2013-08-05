@@ -22,6 +22,16 @@ abstract class Reservation(val wsn: WSN) extends Logging with HasExecutor {
     def isComplete(value: Int): Boolean
   }
 
+  object SEND_OPERATION extends Operation {
+
+    def isComplete(value: Int) = value >= 0
+  }
+
+  object ARE_NODES_ALIVE_OPERATION extends Operation {
+
+    def isComplete(value: Int) = value >= 0
+  }
+
   object RESET_OPERATION extends Operation {
 
     def isComplete(value: Int) = value >= 1
@@ -115,37 +125,40 @@ abstract class Reservation(val wsn: WSN) extends Logging with HasExecutor {
 
   def areNodesAlive(nodeUrns: List[NodeUrn], timeout: Int, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
-    executeRequest(nodeUrns, timeout, timeUnit, requestId => wsn.areNodesAlive(requestId, nodeUrns))
+    executeRequest(nodeUrns, ARE_NODES_ALIVE_OPERATION, timeout, timeUnit, requestId => {
+      wsn.areNodesAlive(requestId, nodeUrns)
+    })
   }
 
   def flash(nodeUrns: List[NodeUrn], imageBytes: Array[Byte], timeout: Long, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
-    executeRequest(nodeUrns, timeout, timeUnit, requestId => {
+    executeRequest(nodeUrns, FLASH_OPERATION, timeout, timeUnit, requestId => {
       wsn.flashPrograms(requestId, createFlashProgramsConfigurationList(nodeUrns, imageBytes))
     })
   }
 
   def reset(nodeUrns: List[NodeUrn], timeout: Int, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
-    executeRequest(nodeUrns, timeout, timeUnit, requestId => {
+    executeRequest(nodeUrns, RESET_OPERATION, timeout, timeUnit, requestId => {
       wsn.resetNodes(requestId, nodeUrns)
     })
   }
 
   def send(nodeUrns: List[NodeUrn], bytes: Array[Byte], timeout: Int, timeUnit: TimeUnit): RequestTracker = {
     assertConnected()
-    executeRequest(nodeUrns, timeout, timeUnit, requestId => wsn.send(requestId, nodeUrns, bytes))
+    executeRequest(nodeUrns, SEND_OPERATION, timeout, timeUnit, requestId => wsn.send(requestId, nodeUrns, bytes))
   }
 
   protected def executeRequest(nodeUrns: List[NodeUrn],
-                             timeout: Long,
-                             timeUnit: TimeUnit,
-                             runnable: Long => Unit): RequestTracker = {
+                               operation: Operation,
+                               timeout: Long,
+                               timeUnit: TimeUnit,
+                               runnable: Long => Unit): RequestTracker = {
     val requestId = requestIdGenerator.nextLong()
     val requestMap = new ProgressSettableFutureMap[NodeUrn, Status](
       Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[Status]())): _*)
     )
-    requestCache.put(requestId, (RESET_OPERATION, requestMap), timeout, timeUnit)
+    requestCache.put(requestId, (operation, requestMap), timeout, timeUnit)
     executor.execute(new Runnable {
       def run() {
         runnable(requestId)
@@ -155,7 +168,7 @@ abstract class Reservation(val wsn: WSN) extends Logging with HasExecutor {
   }
 
   protected def createFlashProgramsConfigurationList(nodeUrns: List[NodeUrn],
-                                                   imageBytes: Array[Byte]): List[FlashProgramsConfiguration] = {
+                                                     imageBytes: Array[Byte]): List[FlashProgramsConfiguration] = {
     val config = new FlashProgramsConfiguration()
     config.getNodeUrns.addAll(nodeUrns)
     config.setProgram(imageBytes)
@@ -193,7 +206,7 @@ abstract class Reservation(val wsn: WSN) extends Logging with HasExecutor {
           futureEntry match {
             case Some(future) => {
               if (value < 0) {
-                val e = new RequestFailedException(List(nodeUrn), value, msg)
+                val e = new NodeRequestFailedException(nodeUrn, value, new Exception(msg))
                 future.asInstanceOf[ProgressSettableFuture[Status]].setException(e)
               } else if (operation.isComplete(value)) {
                 future.asInstanceOf[ProgressSettableFuture[Status]].set(status)

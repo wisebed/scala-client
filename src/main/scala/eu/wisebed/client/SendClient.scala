@@ -88,7 +88,7 @@ object Send extends App {
     })
 
     tracker.onNodeFailure((nodeUrn, e) => {
-      println("Operation failed for node %s: %s".format(nodeUrn, e.errorMessage))
+      println("Operation failed for node %s: %s".format(nodeUrn, e.exception.getMessage))
     })
 
     tracker.onNodeCompletion(nodeUrn => {
@@ -111,8 +111,8 @@ object Send extends App {
     })
 
     tracker.onFailure(e => {
-      println("Operation failed: %s".format(e.errorMessage))
-      System.exit(e.statusCode)
+      println("Operation failed: %s".format(e.toString))
+      System.exit(1)
     })
 
     tracker.onProgress(progressInPercent => {

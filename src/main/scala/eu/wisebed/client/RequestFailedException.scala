@@ -1,14 +1,37 @@
 package eu.wisebed.client
 
 import eu.wisebed.api.v3.common.NodeUrn
-import com.google.common.base.Joiner
-import scala.collection.JavaConversions._
 
-class RequestFailedException(val nodeUrns: List[NodeUrn], val statusCode: Int, val errorMessage: String)
-  extends Exception {
+class RequestFailedException(val failed: Map[NodeUrn, (Int, String)]) extends Exception {
 
-  def this(nodeUrns: List[NodeUrn], e: Exception) = this(nodeUrns, -1, e.getMessage)
+  def getFailedNodeUrns: Set[NodeUrn] = failed.keySet
 
-  override def toString = this.getClass.getSimpleName +
-    "[statusCode=%d, nodeUrns=[%s], errorMessage=%s]".format(statusCode, Joiner.on(",").join(nodeUrns), errorMessage)
+  def getStatusCode(nodeUrn: NodeUrn): Option[Int] = failed.get(nodeUrn) match {
+    case Some(x) => Some(x._1)
+    case None => None
+  }
+
+  def getErrorMessage(nodeUrn: NodeUrn): Option[String] = failed.get(nodeUrn) match {
+    case Some(x) => Some(x._2)
+    case None => None
+  }
+
+  override def toString = {
+    val s = new StringBuilder()
+    failed.keys.foreach({
+      case nodeUrn => {
+        s ++ nodeUrn.toString
+        s ++ " => "
+        getStatusCode(nodeUrn) match {
+          case Some(x) => s ++ x.toString
+          case None =>
+        }
+        getErrorMessage(nodeUrn) match {
+          case Some(x) => s ++ x.toString
+          case None =>
+        }
+      }
+    })
+    s.toString()
+  }
 }

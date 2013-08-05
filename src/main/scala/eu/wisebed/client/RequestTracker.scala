@@ -1,7 +1,7 @@
 package eu.wisebed.client
 
 import eu.wisebed.api.v3.common.NodeUrn
-import de.uniluebeck.itm.tr.util.ProgressListenableFutureMap
+import de.uniluebeck.itm.tr.util.{ProgressListenableFuture, ProgressListenableFutureMap}
 import com.google.common.util.concurrent.MoreExecutors
 import scala.collection.JavaConversions._
 import eu.wisebed.api.v3.controller.Status
@@ -12,7 +12,7 @@ class RequestTracker(val map: ProgressListenableFutureMap[NodeUrn, Status]) {
 
   private var nodeCompletionListeners = List[NodeUrn => Unit]()
 
-  private var nodeFailureListeners = List[(NodeUrn, RequestFailedException) => Unit]()
+  private var nodeFailureListeners = List[(NodeUrn, NodeRequestFailedException) => Unit]()
 
   private var progressListeners = List[Int => Unit]()
 
@@ -38,11 +38,8 @@ class RequestTracker(val map: ProgressListenableFutureMap[NodeUrn, Status]) {
           future.get()
           notifyNodeCompletion(nodeUrn)
         } catch {
-          case e: RequestFailedException => {
-            notifyNodeFailure(nodeUrn, e)
-          }
           case e: Exception => {
-            notifyNodeFailure(nodeUrn, new RequestFailedException(map.keySet().toList, e))
+            notifyNodeFailure(nodeUrn, new NodeRequestFailedException(nodeUrn, -1, e))
           }
         }
       }
@@ -59,7 +56,20 @@ class RequestTracker(val map: ProgressListenableFutureMap[NodeUrn, Status]) {
           notifyFailure(e)
         }
         case e: Exception => {
-          notifyFailure(new RequestFailedException(map.keySet().toList, e))
+          val fun: ((NodeUrn, ProgressListenableFuture[Status])) => (NodeUrn, (Int, String)) = {
+            case (nodeUrn, future) => {
+              try {
+                val msg: String = future.get().getMsg
+                val statusCode: Int = future.get().getValue
+                (nodeUrn, (statusCode, msg))
+              }
+              catch {
+                case e : Throwable => (nodeUrn, (-1, e.getMessage))
+              }
+            }
+          }
+          val failed: Map[NodeUrn, (Int, String)] = Map() ++ map.map(fun)
+          notifyFailure(new RequestFailedException(failed))
         }
       }
     }
@@ -73,7 +83,7 @@ class RequestTracker(val map: ProgressListenableFutureMap[NodeUrn, Status]) {
     nodeCompletionListeners ::= listener
   }
 
-  def onNodeFailure(listener: (NodeUrn, RequestFailedException) => Unit) {
+  def onNodeFailure(listener: (NodeUrn, NodeRequestFailedException) => Unit) {
     nodeFailureListeners ::= listener
   }
 
@@ -97,7 +107,7 @@ class RequestTracker(val map: ProgressListenableFutureMap[NodeUrn, Status]) {
     nodeCompletionListeners.foreach(listener => listener(nodeUrn))
   }
 
-  def notifyNodeFailure(nodeUrn: NodeUrn, exception: RequestFailedException) {
+  def notifyNodeFailure(nodeUrn: NodeUrn, exception: NodeRequestFailedException) {
     nodeFailureListeners.foreach(listener => listener(nodeUrn, exception))
   }
 
