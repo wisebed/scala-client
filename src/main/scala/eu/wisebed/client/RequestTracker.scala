@@ -4,9 +4,9 @@ import eu.wisebed.api.v3.common.NodeUrn
 import de.uniluebeck.itm.tr.util.{ProgressListenableFuture, ProgressListenableFutureMap}
 import com.google.common.util.concurrent.MoreExecutors
 import scala.collection.JavaConversions._
-import eu.wisebed.api.v3.controller.Status
+import eu.wisebed.api.v3.controller.SingleNodeRequestStatus
 
-class RequestTracker(val map: ProgressListenableFutureMap[NodeUrn, Status]) {
+class RequestTracker(val map: ProgressListenableFutureMap[NodeUrn, SingleNodeRequestStatus]) {
 
   private var nodeProgressListeners = List[(NodeUrn, Int) => Unit]()
 
@@ -56,7 +56,7 @@ class RequestTracker(val map: ProgressListenableFutureMap[NodeUrn, Status]) {
           notifyFailure(e)
         }
         case e: Exception => {
-          val fun: ((NodeUrn, ProgressListenableFuture[Status])) => (NodeUrn, (Int, String)) = {
+          val fun: ((NodeUrn, ProgressListenableFuture[SingleNodeRequestStatus])) => (NodeUrn, (Int, String)) = {
             case (nodeUrn, future) => {
               try {
                 val msg: String = future.get().getMsg

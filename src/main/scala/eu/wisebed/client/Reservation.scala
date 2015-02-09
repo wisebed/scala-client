@@ -1,7 +1,7 @@
 package eu.wisebed.client
 
 import de.uniluebeck.itm.tr.util._
-import eu.wisebed.api.v3.controller.{Status, RequestStatus}
+import eu.wisebed.api.v3.controller.{SingleNodeRequestStatus, RequestStatus}
 import eu.wisebed.api.v3.wsn.{FlashProgramsConfiguration, WSN}
 import java.util.concurrent.TimeUnit
 import org.joda.time.DateTime
@@ -46,7 +46,7 @@ abstract class Reservation(val wsn: WSN) extends Logging with HasExecutor {
 
   private val requestIdGenerator: Random = new Random()
 
-  private val requestCache: TimedCache[Long, (Operation, ProgressSettableFutureMap[NodeUrn, Status])] =
+  private val requestCache: TimedCache[Long, (Operation, ProgressSettableFutureMap[NodeUrn, SingleNodeRequestStatus])] =
     new TimedCache()
 
   private var nodesAttachedListeners: List[(DateTime, List[NodeUrn]) => Unit] = Nil
@@ -155,8 +155,8 @@ abstract class Reservation(val wsn: WSN) extends Logging with HasExecutor {
                                timeUnit: TimeUnit,
                                runnable: Long => Unit): RequestTracker = {
     val requestId = requestIdGenerator.nextLong()
-    val requestMap = new ProgressSettableFutureMap[NodeUrn, Status](
-      Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[Status]())): _*)
+    val requestMap = new ProgressSettableFutureMap[NodeUrn, SingleNodeRequestStatus](
+      Map(nodeUrns.map(nodeUrn => (nodeUrn, ProgressSettableFuture.create[SingleNodeRequestStatus]())): _*)
     )
     requestCache.put(requestId, (operation, requestMap), timeout, timeUnit)
     executor.execute(new Runnable {
@@ -192,7 +192,7 @@ abstract class Reservation(val wsn: WSN) extends Logging with HasExecutor {
     val requestId = requestStatus.getRequestId
     requestCache.get(requestId) match {
       case (operation, progressMap) => {
-        for (status <- requestStatus.getStatus) {
+        for (status <- requestStatus.getSingleNodeRequestStatus) {
 
           val nodeUrn = status.getNodeUrn
           val value = status.getValue
@@ -207,11 +207,11 @@ abstract class Reservation(val wsn: WSN) extends Logging with HasExecutor {
             case Some(future) => {
               if (value < 0) {
                 val e = new NodeRequestFailedException(nodeUrn, value, new Exception(msg))
-                future.asInstanceOf[ProgressSettableFuture[Status]].setException(e)
+                future.asInstanceOf[ProgressSettableFuture[SingleNodeRequestStatus]].setException(e)
               } else if (operation.isComplete(value)) {
-                future.asInstanceOf[ProgressSettableFuture[Status]].set(status)
+                future.asInstanceOf[ProgressSettableFuture[SingleNodeRequestStatus]].set(status)
               } else if (value >= 0) {
-                future.asInstanceOf[ProgressSettableFuture[Status]].setProgress(value.toFloat / 100)
+                future.asInstanceOf[ProgressSettableFuture[SingleNodeRequestStatus]].setProgress(value.toFloat / 100)
               }
             }
             case _ => logger.warn(
