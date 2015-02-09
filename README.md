@@ -1,6 +1,9 @@
 # WISEBED Scala Client
 A Scala client implementation for the WISEBED testbeds, similar to scripting-client and experimentation-scripts.
 
+## DISCONTINUATION WARNING
+This project was discontinued quite a long time ago in favor of JavaScript-based [wisebed.js](https://github.com/wisebed/wisebed.js) and [wisebed.js-scripts](https://github.com/wisebed/wisebed.js-scripts).
+
 ## Building
 The WISEBED Scala Client can be build using Maven only. Please run ```mvn package``` to build a jar that contains base & utility classes, as well as some predefined experimentation scripts.
 
